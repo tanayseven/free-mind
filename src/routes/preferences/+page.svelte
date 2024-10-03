@@ -7,8 +7,9 @@ import {toggleMode} from "mode-watcher";
 <div class="container h-full p-0">
         <div class="container p-4 flex flex-col space-y-10">
                 <div class="grid grid-cols-[0rem_1fr_0rem]">
-                        <Button variant="outline" class="flex w-12 p-0" on:click={()=>goto('/')}>
+                        <Button variant="outline" class="flex content-center scale-100" size="icon" on:click={()=>goto('/')}>
                                 <ArrowBigLeft class="h-6 w-6" />
+                                <span class="sr-only">Go back</span>
                         </Button>
                         <h1 class="grid self-center text-4xl font-extrabold tracking-tight lg:text-5xl justify-center">Free Mind</h1>
                         <Button class="flex place-self-end content-center" on:click={toggleMode} variant="outline" size="icon">
