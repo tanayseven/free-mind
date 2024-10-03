@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "free-mind",
-    "version": "0.0.0"
+    "version": "0.0.0-pre_alpha"
   },
   "tauri": {
     "allowlist": {
