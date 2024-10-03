@@ -8,6 +8,7 @@
   import {Switch} from "$lib/components/ui/switch";
   import {Input} from "$lib/components/ui/input";
   import {loadSettings, saveSettings} from "../settings";
+  import {goto} from "$app/navigation";
 
   const hostsFile = '/etc/hosts';
   const possibleSubdomains = ["www", "news", "blog", "web"]
@@ -211,7 +212,7 @@
       <Button class="text-xl" variant="outline" on:click={startTimer} disabled={isTimerRunning}>Start Timer</Button>
     </div>
     <div class="flex items-center justify-end space-x-2">
-      <Button variant="outline" class="text-xl">
+      <Button variant="outline" class="text-xl" on:click={()=>goto('/preferences')}>
         <Settings class="mr-2 h-6 w-6" />
         Preferences
       </Button>

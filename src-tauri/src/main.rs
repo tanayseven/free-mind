@@ -8,36 +8,40 @@ use tauri::{SystemTray, SystemTrayEvent, CustomMenuItem, SystemTrayMenu, WindowE
 
 #[tauri::command]
 fn is_elevated() -> Result<bool, String> {
-   info!("is_elevated function called");
+    info!("is_elevated function called");
 
-   #[cfg(target_os = "windows")]
-   {
-       info!("Checking elevation on Windows");
-       let output = Command::new("net session")
-          .output()
-          .map_err(|e| format!("Failed to run net session command: {}", e))?;
-       let result = !str::from_utf8(&output.stdout).unwrap().contains("Access is denied.");
-       info!("Windows elevation result: {}", result);
-       Ok(result)
-   }
+    // #[cfg(target_os = "windows")]
+    // {
+    //     info!("Checking elevation on Windows");
+    //     let output = Command::new("net session")
+    //         .output()
+    //         .map_err(|e| format!("Failed to run net session command: {}", e))?;
+    //     let result = !str::from_utf8(&output.stdout).unwrap_or().contains("Access is denied.");
+    //     info!("Windows elevation result: {}", result);
+    //     if !result {
+    //         Ok(result)
+    //     } else {
+    //         Err("Access is denied".into())
+    //     }
+    // }
 
-   #[cfg(any(target_os = "linux", target_os = "macos"))]
-   {
-       info!("Checking elevation on Linux/macOS");
-       let output = Command::new("id")
-           .arg("-u")
-           .output()
-           .map_err(|e| format!("Failed to run id command: {}", e))?;
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        info!("Checking elevation on Linux/macOS");
+        let output = Command::new("id")
+            .arg("-u")
+            .output()
+            .map_err(|e| format!("Failed to run id command: {}", e))?;
 
-       let user_id = String::from_utf8_lossy(&output.stdout).trim().parse::<u32>().unwrap_or(0);
-       Ok(user_id == 0)
-   }
+        let user_id = String::from_utf8_lossy(&output.stdout).trim().parse::<u32>().unwrap_or(0);
+        Ok(user_id == 0)
+    }
 
-   #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-   {
-       error!("Unsupported operating system");
-       Err("Unsupported operating system".into())
-   }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+        error!("Unsupported operating system");
+        Err("Unsupported operating system".into())
+    }
 }
 
 #[tauri::command]
@@ -126,15 +130,15 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             info!("Tauri setup complete");
-                #[cfg(debug_assertions)]
-                {
-                    let window = app.get_window("main").unwrap();
-                    window.open_devtools();
-                }
-                Ok(())
+            #[cfg(debug_assertions)]
+            {
+                let window = app.get_window("main").unwrap();
+                window.open_devtools();
+            }
+            Ok(())
         })
         .on_window_event(|event| {
-                if let WindowEvent::CloseRequested { api, .. } = event.event() {
+            if let WindowEvent::CloseRequested { api, .. } = event.event() {
                 api.prevent_close();
                 let window = event.window();
                 window.hide().unwrap();
@@ -152,7 +156,7 @@ fn main() {
                         "quit" => {
                             std::process::exit(0);
                         }
-                    _ => {}
+                        _ => {}
                     }
                 }
                 _ => {}
