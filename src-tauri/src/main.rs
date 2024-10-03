@@ -6,7 +6,6 @@ use tauri::Manager;
 use std::process::Command;
 use tauri::{SystemTray, SystemTrayEvent, CustomMenuItem, SystemTrayMenu, WindowEvent};
 
-
 #[tauri::command]
 fn is_elevated() -> Result<bool, String> {
    info!("is_elevated function called");
@@ -14,8 +13,10 @@ fn is_elevated() -> Result<bool, String> {
    #[cfg(target_os = "windows")]
    {
        info!("Checking elevation on Windows");
-       use winapi::um::securitybaseapi::IsUserAnAdmin;
-       let result = unsafe { IsUserAnAdmin() != 0 };
+       let output = Command::new("net session")
+          .output()
+          .map_err(|e| format!("Failed to run net session command: {}", e))?;
+       let result = !str::from_utf8(&output.stdout).unwrap().contains("Access is denied.");
        info!("Windows elevation result: {}", result);
        Ok(result)
    }
