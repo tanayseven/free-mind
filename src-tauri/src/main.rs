@@ -16,7 +16,7 @@ fn is_elevated() -> Result<bool, String> {
         let output = Command::new("net session")
             .output()
             .map_err(|e| format!("Failed to run net session command: {}", e))?;
-        let result = !str::from_utf8(&output.stdout).unwrap_or("").contains("Access is denied.");
+        let result = !String::from_utf8_lossy(&output.stdout).trim().contains("Access is denied.");
         info!("Windows elevation result: {}", result);
         if !result {
             Ok(true)
