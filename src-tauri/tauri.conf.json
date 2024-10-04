@@ -9,9 +9,6 @@
     "productName": "free-mind",
     "version": "0.0.0"
   },
-  "bundle": {
-    "createUpdaterArtifacts": true
-  },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUxNTc0QjA2NjY2RTE5MwpSV1NUNFdabXNIUVZCUnlkOTl5T3ZyeDVrTE0wQVNWTzJLMXdET3ppZi9nNDFnN1oxLzQ5TzEzUAo=",
