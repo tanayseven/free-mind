@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "@tauri-apps/api": "^1",
-    "bits-ui": "^0.21.15",
+    "bits-ui": "^0.21.16",
     "clsx": "^2.1.1",
     "mode-watcher": "^0.4.1",
     "tailwind-merge": "^2.5.2",

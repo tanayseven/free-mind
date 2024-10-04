@@ -162,6 +162,7 @@
 
   const saveAllPreferences = async () => {
     const currentSettings = await loadSettings();
+    console.log(`Current settings ${currentSettings}`)
     const newSettings = {
       ...currentSettings,
       timerValue,
