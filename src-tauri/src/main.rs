@@ -10,20 +10,20 @@ use tauri::{SystemTray, SystemTrayEvent, CustomMenuItem, SystemTrayMenu, WindowE
 fn is_elevated() -> Result<bool, String> {
     info!("is_elevated function called");
 
-    // #[cfg(target_os = "windows")]
-    // {
-    //     info!("Checking elevation on Windows");
-    //     let output = Command::new("net session")
-    //         .output()
-    //         .map_err(|e| format!("Failed to run net session command: {}", e))?;
-    //     let result = !str::from_utf8(&output.stdout).unwrap_or().contains("Access is denied.");
-    //     info!("Windows elevation result: {}", result);
-    //     if !result {
-    //         Ok(result)
-    //     } else {
-    //         Err("Access is denied".into())
-    //     }
-    // }
+    #[cfg(target_os = "windows")]
+    {
+        info!("Checking elevation on Windows");
+        let output = Command::new("net session")
+            .output()
+            .map_err(|e| format!("Failed to run net session command: {}", e))?;
+        let result = !str::from_utf8(&output.stdout).unwrap_or("").contains("Access is denied.");
+        info!("Windows elevation result: {}", result);
+        if !result {
+            Ok(true)
+        } else {
+            Err("Access is denied".into())
+        }
+    }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
@@ -82,28 +82,28 @@ fn restart_network() -> Result<(), String> {
         } else {
             Err(format!("Failed to restart network: {}", String::from_utf8_lossy(&output.stderr)))
         }
-        let output = Command::new("/etc/init.d/nscd")
-            .arg("restart")
-            .output()
-            .map_err(|e| format!("Failed to command to restart network: {}", e))?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(format!("Failed to restart network: {}", String::from_utf8_lossy(&output.stderr)))
-        }
-        let output = Command::new("/etc/rc.d/nscd")
-            .arg("restart")
-            .output()
-            .map_err(|e| format!("Failed to command to restart network: {}", e))?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(format!("Failed to restart network: {}", String::from_utf8_lossy(&output.stderr)))
-        }
-        let output = Command::new("/etc/rc.d/init.d/nscd")
-            .arg("restart")
-            .output()
-            .map_err(|e| format!("Failed to command to restart network: {}", e))?;
+//         let output = Command::new("/etc/init.d/nscd")
+//             .arg("restart")
+//             .output()
+//             .map_err(|e| format!("Failed to command to restart network: {}", e))?;
+//         if output.status.success() {
+//             Ok(())
+//         } else {
+//             Err(format!("Failed to restart network: {}", String::from_utf8_lossy(&output.stderr)))
+//         }
+//         let output = Command::new("/etc/rc.d/nscd")
+//             .arg("restart")
+//             .output()
+//             .map_err(|e| format!("Failed to command to restart network: {}", e))?;
+//         if output.status.success() {
+//             Ok(())
+//         } else {
+//             Err(format!("Failed to restart network: {}", String::from_utf8_lossy(&output.stderr)))
+//         }
+//         let output = Command::new("/etc/rc.d/init.d/nscd")
+//             .arg("restart")
+//             .output()
+//             .map_err(|e| format!("Failed to command to restart network: {}", e))?;
     }
 
     #[cfg(target_os = "windows")]
