@@ -6,6 +6,7 @@ import {toggleMode} from "mode-watcher";
 import {Separator} from "$lib/components/ui/separator";
 import {ScrollArea} from "$lib/components/ui/scroll-area";
 import {loadSettings} from "../../settings";
+import {Checkbox} from "$lib/components/ui/checkbox";
 
 let selectedWebsiteGroup = "";
 let websiteGroups: Record<string, string[]>
@@ -40,17 +41,23 @@ const loadWebsiteGroups = async () => {
                 <div>
                         <h2 class="text-xl font-bold">Preferences</h2>
                         <Separator class="my-4" />
-                        <div class="grid grid-cols-[0.5fr_0.5fr] px-6 ml-14">
+                        <div class="grid grid-cols-[0.5fr_0.5fr]">
                                 <div class="flex flex-col">
                                         <label for="timer" class="text-lg">Block Group</label>
-                                        <ScrollArea  class="h-72 w-48 rounded-md border">
+                                        <ScrollArea  class="h-72 w-full rounded-md border">
                                                 <div class="p-4">
                                                         {#each Object.keys(websiteGroups) as websiteGroup}
-                                                                <div class="text-sm">
+                                                                <div class="text-sm flex flex-row items-center justify-center">
                                                                         {#if selectedWebsiteGroup === websiteGroup}
-                                                                                <Button variant="ghost" size="sm" disabled>{websiteGroup}</Button>
+                                                                                <Button variant="ghost" class="w-4/5 flex" size="sm" disabled>
+                                                                                        {websiteGroup}
+                                                                                </Button>
+                                                                                <Checkbox id="" class="flex" aria-labelledby="" />
                                                                         {:else}
-                                                                                <Button variant="outline" size="sm" on:click={() => selectedWebsiteGroup = websiteGroup}>{websiteGroup}</Button>
+                                                                                <Button variant="ghost" class="w-4/5 flex" size="sm" on:click={() => selectedWebsiteGroup = websiteGroup}>
+                                                                                        {websiteGroup}
+                                                                                </Button>
+                                                                                <Checkbox id="" class="flex" aria-labelledby="" />
                                                                         {/if}
 
                                                                 </div>
@@ -62,11 +69,12 @@ const loadWebsiteGroups = async () => {
                                 <div class="flex flex-col">
                                         <label for="timer" class="text-lg">Block Sites {#if selectedWebsiteGroup !== ''} in group: {selectedWebsiteGroup}{/if}</label>
                                         {#if selectedWebsiteGroup !== ''}
-                                        <ScrollArea  class="h-72 w-48 rounded-md border">
+                                        <ScrollArea  class="h-72 w-full rounded-md border">
                                                 <div class="p-4">
                                                         {#each websiteGroups[selectedWebsiteGroup] as website}
-                                                                <div class="text-sm">
-                                                                        <Button variant="outline" size="sm">{website}</Button>
+                                                                <div class="text-sm flex flex-row items-center justify-center">
+                                                                        <Button variant="ghost" class="w-4/5 flex" size="sm">{website}</Button>
+                                                                        <Checkbox id="" class="flex" aria-labelledby="" />
                                                                 </div>
                                                                 <Separator class="my-2" />
                                                         {/each}

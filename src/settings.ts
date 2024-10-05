@@ -9,12 +9,6 @@ type Settings = {
   websiteBlockList: Record<string, string[]>
 }
 
-const websiteBlockGroups = async (): Promise<string[]> => {
-  const loadedSettings = await loadSettings();
-  console.log(`loaded settings ${JSON.stringify(loadedSettings)}`)
-  return Object.keys(loadedSettings.websiteBlockList);
-}
-
 const defaultSettings: Settings = {
   timerValue: 25,
   websiteBlockList: {
@@ -72,5 +66,4 @@ const loadSettings = async (): Promise<Settings> => {
 export {
   saveSettings,
   loadSettings,
-  websiteBlockGroups,
 }
