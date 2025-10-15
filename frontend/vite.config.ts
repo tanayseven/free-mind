@@ -11,6 +11,14 @@ export default defineConfig({
             $lib: path.resolve("src/lib"),
         }
     },
+    server: {
+        fs: {
+            allow: [
+                "..",
+                "../wailsjs",
+            ],
+        },
+    },
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
