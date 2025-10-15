@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime"
 )
 
 // App struct
@@ -25,7 +26,17 @@ func (a *App) Read(name string) string {
 	return "Read " + name + " file successfully"
 }
 
-// Greet returns a greeting for the given name
 func (a *App) Write(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+func (a *App) HostsFilePath() string {
+	switch runtime.GOOS {
+	case "windows":
+		return `C:\Windows\System32\drivers\etc\hosts`
+	case "darwin", "linux":
+		return "/etc/hosts"
+	default:
+		return ""
+	}
 }
