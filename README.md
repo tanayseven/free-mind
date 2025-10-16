@@ -55,10 +55,13 @@ The timer component offers multiple time management methods:
 ## Development Setup
 
 ### Prerequisites
-1. [Install Wails](https://wails.io/docs/gettingstarted/installation)
+[Install Go v1.23](https://go.dev/dl/)
+[Install Wails](https://wails.io/docs/gettingstarted/installation)
+[Install NVM](https://github.com/nvm-sh/nvm)
 
 ### Frontend Setup
 ```shell
+cd frontend/
 nvm install
 nvm use
 npm i
@@ -71,6 +74,7 @@ wails dev
 
 # Build for all supported platforms
 wails build
+```
 
 # License
 
