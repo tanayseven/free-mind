@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {Read, Write} from "../../wailsjs/go/main/App";
+    import {Read, Write, WriteToHostFile} from "../../wailsjs/go/main/App";
     
     // Function to call the Go Read function
     async function callRead() {
@@ -15,6 +15,16 @@
     async function callWrite() {
         try {
             const result = await Write("User");
+            alert(result);
+        } catch (error) {
+            console.error("Error calling Write function:", error);
+        }
+    }
+
+    // Function to call the Go Write function
+    async function writeToHostsFile() {
+        try {
+            const result = await WriteToHostFile();
             alert(result);
         } catch (error) {
             console.error("Error calling Write function:", error);
@@ -41,6 +51,12 @@
             on:click={callWrite}
         >
             Write
+        </button>
+        <button
+            class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+            on:click={writeToHostsFile}
+        >
+            Write to /etc/hosts
         </button>
     </div>
 </section>

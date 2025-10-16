@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
 	"runtime"
+	"time"
 )
 
 // App struct
@@ -39,4 +42,17 @@ func (a *App) HostsFilePath() string {
 	default:
 		return ""
 	}
+}
+
+func (a *App) WriteToHostFile() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "pkexec", "sh", "-c", "echo \"# test\" >> /etc/hosts")
+	err := cmd.Run()
+	if err != nil {
+	}
+	var out, stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	return out.String() + "\n" + stderr.String()
 }
