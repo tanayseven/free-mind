@@ -15,7 +15,7 @@
 ["/etc/init.d/networking", "restart"],
 ["/etc/init.d/nscd", "restart"],
 ["/etc/rc.d/nscd", "restart"],
-["/etc/rc.d/init.d/nscd", "restart"],
+["/etc/rc.d/init.d/nscd", "restart"], 
 ```
 
 - [ ] MacOS
