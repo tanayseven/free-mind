@@ -47,43 +47,44 @@ func main() {
 		return
 	}
 	defer router.Destroy()
-	request, err := router.RecvMessage()
-	if err != nil {
-		log.Fatal(err)
-	}
+	for {
+		request, err := router.RecvMessage()
+		if err != nil {
+			log.Fatal(err)
+		}
+		// Parse the received JSON message
+		var receivedMsg Message
+		err = json.Unmarshal(request[1], &receivedMsg)
+		if err != nil {
+			log.Printf("Error unmarshaling JSON: %v", err)
+			// Continue with error handling if needed
+		}
 
-	// Parse the received JSON message
-	var receivedMsg Message
-	err = json.Unmarshal(request[1], &receivedMsg)
-	if err != nil {
-		log.Printf("Error unmarshaling JSON: %v", err)
-		// Continue with error handling if needed
-	}
+		log.Printf("router received action: '%s', content: '%s' from '%v'",
+			receivedMsg.Action, receivedMsg.Content, request[0])
 
-	log.Printf("router received action: '%s', content: '%s' from '%v'",
-		receivedMsg.Action, receivedMsg.Content, request[0])
+		// Create a response message
+		responseMsg := Message{
+			Action:  "response",
+			Content: "Message received successfully",
+		}
 
-	// Create a response message
-	responseMsg := Message{
-		Action:  "response",
-		Content: "Message received successfully",
-	}
+		// Marshal the response to JSON
+		responseJSON, err := json.Marshal(responseMsg)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	// Marshal the response to JSON
-	responseJSON, err := json.Marshal(responseMsg)
-	if err != nil {
-		log.Fatal(err)
-	}
+		// Send the response back
+		err = router.SendFrame(request[0], goczmq.FlagMore)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	// Send the response back
-	err = router.SendFrame(request[0], goczmq.FlagMore)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("router sent response JSON")
-	err = router.SendFrame(responseJSON, goczmq.FlagNone)
-	if err != nil {
-		log.Fatal(err)
+		log.Printf("router sent response JSON")
+		err = router.SendFrame(responseJSON, goczmq.FlagNone)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
