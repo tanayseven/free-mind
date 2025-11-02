@@ -1,31 +1,31 @@
 <script lang="ts">
-    import {Read, Write, WriteToHostFile} from "../../wailsjs/go/main/App";
-    
-    // Function to call the Go Read function
-    async function callRead() {
-        try {
-            const result = await Read("example");
-            alert(result);
-        } catch (error) {
-            console.error("Error calling Read function:", error);
-        }
-    }
-    
+    import {FetchDaemonPort, SendBlockList, StartBlocking, StopBlocking} from "../../wailsjs/go/main/App";
+
+    const websitesToBeBlocked = [
+        "youtube.com",
+        "www.youtube.com",
+        "facebook.com",
+        "www.facebook.com",
+        "instagram.com",
+        "www.instagram.com",
+    ]
+
     // Function to call the Go Write function
-    async function callWrite() {
+    async function sendStartCommand() {
         try {
-            const result = await Write("User");
-            alert(result);
+            await FetchDaemonPort()
+            await SendBlockList(websitesToBeBlocked.join(","));
+            await StartBlocking();
         } catch (error) {
             console.error("Error calling Write function:", error);
         }
     }
 
     // Function to call the Go Write function
-    async function writeToHostsFile() {
+    async function sendStopCommand() {
         try {
-            const result = await WriteToHostFile();
-            alert(result);
+            await FetchDaemonPort()
+            await StopBlocking();
         } catch (error) {
             console.error("Error calling Write function:", error);
         }
@@ -42,21 +42,15 @@
     <div class="flex justify-center gap-4">
         <button
             class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
-            on:click={callRead}
+            on:click={sendStartCommand}
         >
-            Read
+            Start
         </button>
         <button
             class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
-            on:click={callWrite}
+            on:click={sendStopCommand}
         >
-            Write
-        </button>
-        <button
-            class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
-            on:click={writeToHostsFile}
-        >
-            Write to /etc/hosts
+            Stop
         </button>
     </div>
 </section>

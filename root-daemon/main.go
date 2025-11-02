@@ -41,7 +41,7 @@ func main() {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
-	
+
 	// Write the daemon port to the correct path
 	portPath := FreeMindDaemonPortPath()
 	err = os.WriteFile(portPath, []byte(fmt.Sprintf("%d", availablePort)), 0644)
