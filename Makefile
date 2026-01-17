@@ -10,6 +10,17 @@ build-wails-app: # Builds the wails app for the current architecture
 build-daemon: # Builds the daemon that will run as a root process
 	go build -o build/bin/free-mind-daemon root-daemon/main.go
 
+build-daemon-all: build-daemon-linux build-daemon-macos build-daemon-windows # Builds the daemon for all platforms
+
+build-daemon-linux: # Builds the daemon for Linux
+	GOOS=linux GOARCH=amd64 go build -o build/bin/free-mind-daemon-linux root-daemon/main.go
+
+build-daemon-macos: # Builds the daemon for macOS
+	GOOS=darwin GOARCH=amd64 go build -o build/bin/free-mind-daemon-darwin root-daemon/main.go
+
+build-daemon-windows: # Builds the daemon for Windows
+	GOOS=windows GOARCH=amd64 go build -o build/bin/free-mind-daemon-windows.exe root-daemon/main.go
+
 
 .PHONY: help
 help: # Show help information

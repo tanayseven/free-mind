@@ -39,12 +39,12 @@ The application consists of two primary components:
 #### 2. Focus Timer
 The timer component offers multiple time management methods:
 
-| Timer Type | Description |
-|------------|-------------|
-| Pomodoro | Alternates between 25-minute focus sessions and 5-minute breaks |
-| Countdown | Counts down from a user-defined focus period, then switches to break time |
-| Stopwatch | Tracks elapsed time since focus mode was activated |
-| Schedule | Automatically manages focus/break periods based on pre-defined schedules |
+| Timer Type | Description                                                               |
+|------------|---------------------------------------------------------------------------|
+| Pomodoro   | Alternates between 25-minute focus sessions and 5-minute breaks           |
+| Countdown  | Counts down from a user-defined focus period, then switches to break time |
+| Stopwatch  | Tracks elapsed time since focus mode was activated                        |
+| Schedule   | Automatically manages focus/break periods based on pre-defined schedules  |
 
 ### Technical Stack
 
