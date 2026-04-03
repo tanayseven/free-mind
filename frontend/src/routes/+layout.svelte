@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Header from './Header.svelte';
 	import '../app.css';
+	import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 
 	let { children } = $props();
 </script>
@@ -14,7 +15,7 @@
 
 	<footer class="w-full bg-secondary py-4 px-6 text-center text-secondary-foreground text-sm md:text-base">
 		<p class="max-w-4xl mx-auto">
-			Made with ❤️ and 😓 by Tanay PrabhuDesai visit <a href="https://freemind.tanay.tech" target="_blank" class="text-primary hover:underline">Freemind</a> to learn about this application.
+			Made with ❤️ and 😓 by Tanay PrabhuDesai visit <button onclick={() => BrowserOpenURL('https://freemind.tanay.tech')} class="text-primary hover:underline cursor-pointer">Freemind</button> to learn about this application.
 		</p>
 	</footer>
 </div>

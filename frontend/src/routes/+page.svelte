@@ -1,60 +1,32 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import {FetchDaemonPort, SendBlockList, StartBlocking, StopBlocking, InstallDaemonWithOneClick} from "../../wailsjs/go/main/App";
+    import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking} from "../../wailsjs/go/main/App";
 
     let daemonStatus = "Loading... Please wait.";
     let isLoading = true;
     let showInstallButton = false;
+    let isBlocking = false;
 
     // Function to check daemon connection and handle errors
     async function checkDaemonConnection() {
         try {
-            console.log("Starting checkDaemonConnection function");
             isLoading = true;
-            // Try to connect to the daemon
-            console.log("Calling FetchDaemonPort...");
-            daemonStatus = await FetchDaemonPort();
-            console.log("Daemon status:", daemonStatus);
-            
-            // Additional check to verify if the daemon is actually running
-            // If the response contains "Error", it means the daemon is not running
-            if (daemonStatus.includes("Error")) {
-                console.error("Daemon connection failed:", daemonStatus);
-                daemonStatus = "Error connecting to daemon. Daemon may not be installed or running.";
+            const result = await ConnectToDaemon();
+
+            if (result.includes("Error")) {
+                daemonStatus = "Daemon is not installed or not running.";
                 isLoading = false;
                 showInstallButton = true;
                 return false;
             }
-            
-            // Try to send a test message to verify the connection
-            try {
-                console.log("Sending test message to daemon...");
-                // Use SendBlockList as a test to verify the connection works
-                const testResult = await SendBlockList("test");
-                console.log("Test message result:", testResult);
-                if (!testResult) {
-                    console.error("Daemon test message failed");
-                    daemonStatus = "Daemon is installed but not responding to commands.";
-                    isLoading = false;
-                    showInstallButton = true;
-                    return false;
-                }
-            } catch (testError) {
-                console.error("Error testing daemon connection:", testError);
-                console.error("Error details:", JSON.stringify(testError));
-                daemonStatus = "Daemon is installed but not responding to commands.";
-                isLoading = false;
-                showInstallButton = true;
-                return false;
-            }
-            
-            console.log("Daemon connection successful, setting isLoading to false");
+
+            daemonStatus = "";
             isLoading = false;
             showInstallButton = false;
+            isBlocking = await CheckBlocking();
             return true;
         } catch (error) {
-            console.error("Error connecting to daemon:", error);
-            daemonStatus = "Error connecting to daemon. Daemon may not be installed or running.";
+            daemonStatus = "Error connecting to daemon: " + error;
             isLoading = false;
             showInstallButton = true;
             return false;
@@ -69,39 +41,21 @@
             showInstallButton = false;
             daemonStatus = "Installing daemon...";
             
-            // Install the daemon
-            console.log("Calling InstallDaemonWithOneClick...");
-            const installResult = await InstallDaemonWithOneClick();
+            // First check if daemon is already installed
+            console.log("Checking if daemon is already installed...");
+            const installedCheck = await CheckDaemonInstalled();
+            console.log("Daemon installed check result:", installedCheck);
             
-            // Now let's manually start the daemon
-            console.log("Attempting to start the daemon...");
-            try {
-                // Use pkexec to run the daemon with elevated privileges
-                const daemonPath = "/usr/bin/free-mind-daemon";
-                
-                // Create a temporary script to start the daemon
-                const tempScript = `
-                #!/bin/bash
-                ${daemonPath} &
-                `;
-                
-                // Write the script to a temporary file
-                const scriptElement = document.createElement('a');
-                const scriptBlob = new Blob([tempScript], {type: 'text/plain'});
-                scriptElement.href = URL.createObjectURL(scriptBlob);
-                const scriptPath = '/tmp/start-daemon.sh';
-                scriptElement.download = 'start-daemon.sh';
-                document.body.appendChild(scriptElement);
-                scriptElement.click();
-                document.body.removeChild(scriptElement);
-                
-                console.log("Created temporary script to start daemon");
-                
-                // Alert the user to run the script with elevated privileges
-                alert("Please run the following command in a terminal with sudo privileges:\n\nchmod +x /tmp/start-daemon.sh && sudo /tmp/start-daemon.sh");
-            } catch (startError) {
-                console.error("Error trying to start daemon:", startError);
+            if (installedCheck) {
+                daemonStatus = "Daemon appears to be installed. Attempting to restart...";
+                isLoading = false;
+                return true; // Already installed
             }
+            
+            // Install and start the daemon
+            console.log("Calling InstallAndStartDaemon...");
+            const installResult = await InstallAndStartDaemon();
+            
             console.log("Installation result:", installResult);
             daemonStatus = installResult;
             
@@ -127,6 +81,7 @@
             
         } catch (error) {
             console.error("Error installing daemon:", error);
+            console.error("Full error details:", JSON.stringify(error));
             daemonStatus = "Error installing daemon: " + error;
             showInstallButton = true;
             isLoading = false;
@@ -151,7 +106,7 @@
         } catch (error) {
             // Ensure we're not stuck in loading state if there's an error
             console.error("Error during initialization:", error);
-            console.error("Error details:", JSON.stringify(error));
+            console.error("Full error details:", JSON.stringify(error));
             daemonStatus = "Error initializing application: " + error;
             isLoading = false;
             showInstallButton = true;
@@ -171,21 +126,32 @@
     // Function to call the Go Write function
     async function sendStartCommand() {
         try {
-            await FetchDaemonPort()
-            await SendBlockList(websitesToBeBlocked.join(","));
-            await StartBlocking();
+            console.log("Sending start command...");
+            await ConnectToDaemon();
+            const blockResult = await SendBlockList(websitesToBeBlocked.join(","));
+            console.log("SendBlockList result:", blockResult);
+            if (blockResult) {
+                const startResult = await StartBlocking();
+                console.log("StartBlocking result:", startResult);
+                if (startResult) isBlocking = true;
+            }
         } catch (error) {
-            console.error("Error calling Write function:", error);
+            console.error("Error calling commands:", error);
+            console.error("Full error details:", JSON.stringify(error));
         }
     }
 
     // Function to call the Go Write function
     async function sendStopCommand() {
         try {
-            await FetchDaemonPort()
-            await StopBlocking();
+            console.log("Sending stop command...");
+            await ConnectToDaemon();
+            const stopResult = await StopBlocking();
+            console.log("StopBlocking result:", stopResult);
+            isBlocking = await CheckBlocking();
         } catch (error) {
-            console.error("Error calling Write function:", error);
+            console.error("Error calling Stop command:", error);
+            console.error("Full error details:", JSON.stringify(error));
         }
     }
 </script>
@@ -218,16 +184,16 @@
         {/if}
         <div class="flex justify-center gap-4">
             <button
-                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 on:click={sendStartCommand}
-                disabled={isLoading || showInstallButton}
+                disabled={isLoading || showInstallButton || isBlocking}
             >
                 Start
             </button>
             <button
-                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 on:click={sendStopCommand}
-                disabled={isLoading || showInstallButton}
+                disabled={isLoading || showInstallButton || !isBlocking}
             >
                 Stop
             </button>

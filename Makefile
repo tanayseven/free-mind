@@ -1,8 +1,8 @@
 
 .ONESHELL:
 run-app: # Run the app in dev mode
-	nvm install
-	wails run
+	. ~/.nvm/nvm.sh && nvm install
+	wails dev
 
 build-wails-app: # Builds the wails app for the current architecture
 	wails build
@@ -20,6 +20,9 @@ build-daemon-macos: # Builds the daemon for macOS
 
 build-daemon-windows: # Builds the daemon for Windows
 	GOOS=windows GOARCH=amd64 go build -o build/bin/free-mind-daemon-windows.exe root-daemon/main.go
+
+test: # Run all tests
+	go test ./...
 
 
 .PHONY: help
