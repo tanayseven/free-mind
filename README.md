@@ -76,6 +76,39 @@ wails dev
 wails build
 ```
 
+## Troubleshooting Desktop Issues
+
+If the application works in browser but not on desktop, here are common issues and solutions:
+
+1. **Daemon Installation Failure**: The application requires a daemon process to manage website blocking. This needs elevated privileges.
+   - On Linux/macOS: Ensure `pkexec` is available
+   - On Windows: Make sure PowerShell execution policies allow script execution
+
+2. **Permission Issues**:
+   - The daemon binary must be installed in system directories with proper permissions
+   - Check that the application has sufficient privileges to modify `/etc/hosts`
+
+3. **ZMQ Communication Problems**:
+   - Ensure ZeroMQ libraries are properly linked
+   - Verify that port files are created correctly
+
+4. **Debugging Steps**:
+   - Run `wails dev` and check browser console for errors
+   - Check system logs for permission denials or process failures
+   - Use the debug page in the application to get detailed error information
+
+## Building for Desktop
+
+To build a desktop version that works properly:
+
+```shell
+# Build daemon binaries for all platforms
+make build-daemon-all
+
+# Then build the main application
+wails build
+```
+
 # License
 
 (Decision pending)

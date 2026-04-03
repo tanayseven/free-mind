@@ -3,11 +3,13 @@
 
 export function CheckAndInstallDaemon():Promise<string>;
 
+export function CheckBlocking():Promise<boolean>;
+
 export function CheckDaemonInstalled():Promise<boolean>;
 
-export function ExtractDaemonBinary():Promise<string>;
+export function ConnectToDaemon():Promise<string>;
 
-export function FetchDaemonPort():Promise<string>;
+export function ExtractDaemonBinary():Promise<string>;
 
 export function GetDaemonBinaryDestination():Promise<string>;
 

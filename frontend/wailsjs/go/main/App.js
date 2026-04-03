@@ -6,16 +6,20 @@ export function CheckAndInstallDaemon() {
   return window['go']['main']['App']['CheckAndInstallDaemon']();
 }
 
+export function CheckBlocking() {
+  return window['go']['main']['App']['CheckBlocking']();
+}
+
 export function CheckDaemonInstalled() {
   return window['go']['main']['App']['CheckDaemonInstalled']();
 }
 
-export function ExtractDaemonBinary() {
-  return window['go']['main']['App']['ExtractDaemonBinary']();
+export function ConnectToDaemon() {
+  return window['go']['main']['App']['ConnectToDaemon']();
 }
 
-export function FetchDaemonPort() {
-  return window['go']['main']['App']['FetchDaemonPort']();
+export function ExtractDaemonBinary() {
+  return window['go']['main']['App']['ExtractDaemonBinary']();
 }
 
 export function GetDaemonBinaryDestination() {
