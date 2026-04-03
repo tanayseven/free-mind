@@ -1,6 +1,7 @@
 <script lang="ts">
     import {onMount} from "svelte";
     import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking} from "../../wailsjs/go/main/App";
+    import { Switch } from "@/components/ui/switch";
 
     let daemonStatus = "Loading... Please wait.";
     let isLoading = true;
@@ -180,23 +181,21 @@
         </div>
     {:else}
         {#if daemonStatus}
-            <p class="mb-4 text-sm text-gray-600">{daemonStatus}</p>
+            <p class="mb-4 text-sm text-muted-foreground">{daemonStatus}</p>
         {/if}
-        <div class="flex justify-center gap-4">
-            <button
-                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                on:click={sendStartCommand}
-                disabled={isLoading || showInstallButton || isBlocking}
-            >
-                Start
-            </button>
-            <button
-                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                on:click={sendStopCommand}
-                disabled={isLoading || showInstallButton || !isBlocking}
-            >
-                Stop
-            </button>
+        <div class="flex justify-center items-center gap-4">
+            <Switch
+                checked={isBlocking}
+                onCheckedChange={(checked) => checked ? sendStartCommand() : sendStopCommand()}
+                disabled={isLoading || showInstallButton}
+                size="lg"
+                class={isBlocking
+                    ? "data-[state=checked]:bg-red-500"
+                    : "data-[state=unchecked]:bg-green-500"}
+            />
+            <span class="text-lg font-semibold {isBlocking ? 'text-red-500' : 'text-green-500'}">
+                {isBlocking ? "Stop" : "Start"}
+            </span>
         </div>
     {/if}
 </section>
