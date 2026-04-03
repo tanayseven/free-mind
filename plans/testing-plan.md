@@ -12,6 +12,8 @@ This document outlines the testing plan for the new IPC implementation across di
 
 ## Test Cases
 
+> Unit tests written for cases 1–5 (`ipc/unix_test.go`, `root-daemon/daemon_test.go`, `app_test.go`, `test-socket-connection.sh`). Cross-platform execution pending.
+
 ### 1. Daemon Installation and Startup
 
 **Test Steps:**
@@ -115,7 +117,8 @@ This document outlines the testing plan for the new IPC implementation across di
 
 ## Test Execution
 
-1. Run the tests on each platform
-2. Document any issues or failures
-3. Fix any issues and retest
-4. Verify all tests pass on all platforms
+- [x] Write unit tests for IPC package, daemon, and app
+- [ ] Run the tests on each platform (Linux, macOS, Windows)
+- [ ] Document any issues or failures
+- [ ] Fix any issues and retest
+- [ ] Verify all tests pass on all platforms

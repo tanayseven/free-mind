@@ -22,6 +22,8 @@ The new implementation will use our custom IPC package:
 
 ## Code Changes
 
+> **Status:** All code changes completed.
+
 ### Imports
 
 Replace:
@@ -210,7 +212,7 @@ The Message struct will be moved to the IPC package, so we can remove it from th
 ## Testing
 
 To test the new implementation:
-1. Start the daemon
-2. Use the client to connect to the daemon
-3. Send messages and verify responses
-4. Test on different platforms (Linux, Darwin, Windows)
+- [x] Start the daemon
+- [x] Use the client to connect to the daemon
+- [x] Send messages and verify responses (unit tests in `root-daemon/daemon_test.go`)
+- [ ] Test on different platforms (Linux, Darwin, Windows)

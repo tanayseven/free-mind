@@ -84,10 +84,10 @@ graph TD
 
 ## Implementation Steps
 
-1. Create the IPC package with interfaces for Server, Connection, and Client
-2. Implement Unix socket IPC implementation for Linux and Darwin
-3. Implement Windows pipe IPC implementation using github.com/Microsoft/go-winio
-4. Update root-daemon/main.go to use the new IPC package
-5. Update app.go to use the new IPC client
-6. Remove ZMQ related code from both files
-7. Test the implementation for different platforms
+- [x] Create the IPC package with interfaces for Server, Connection, and Client
+- [x] Implement Unix socket IPC implementation for Linux and Darwin
+- [x] Implement Windows pipe IPC implementation using github.com/Microsoft/go-winio
+- [x] Update root-daemon/main.go to use the new IPC package
+- [x] Update app.go to use the new IPC client
+- [x] Remove ZMQ related code from both files
+- [ ] Test the implementation for different platforms
