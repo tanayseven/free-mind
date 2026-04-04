@@ -3,26 +3,26 @@
 ## Diagram 1 — System Architecture
 
 ```mermaid
-graph TD
+graph LR
     User(["👤 User"])
 
-    subgraph Frontend["Frontend"]
+    subgraph Frontend["Frontend (Svelte)"]
         UI["User Interface"]
     end
 
-    subgraph MainApp["Main App (user-level)"]
+    subgraph MainApp["Backend (Wails)"]
         Bridge["UI ↔ Backend Bridge"]
-        AppLogic["App Logic\nDaemon lifecycle + IPC client"]
+        AppLogic["App Logic<br/>Daemon lifecycle + IPC client"]
         EmbeddedBin["Embedded Daemon Binary"]
     end
 
     subgraph IPC["IPC Layer"]
-        Transport["Platform Transport\nUnix socket / Named pipe"]
+        Transport["Platform Transport<br/>Unix socket / Named pipe"]
     end
 
     subgraph Daemon["Root Daemon (elevated)"]
         IPCServer["IPC Server"]
-        BlockingLogic["Blocking Logic\nstart / stop / update"]
+        BlockingLogic["Blocking Logic<br/>start / stop / update"]
         DNS["DNS Cache Flush"]
     end
 
@@ -31,7 +31,7 @@ graph TD
         BlockList["block list file"]
     end
 
-    User -->|interacts| Frontend
+    User -->|interacts| UI
     UI --> Bridge --> AppLogic
     AppLogic <-->|commands| Transport
     Transport <-->|commands| IPCServer
@@ -49,8 +49,8 @@ graph TD
 ```mermaid
 sequenceDiagram
     actor User
-    participant UI as Frontend
-    participant App as Main App
+    participant UI as Frontend (Svelte)
+    participant App as Backend (Wails)
     participant OS as Operating System
     participant Daemon as Root Daemon
     participant Hosts as Hosts File
