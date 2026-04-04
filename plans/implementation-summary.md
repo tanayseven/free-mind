@@ -85,7 +85,42 @@ Messages are serialized to JSON for transmission and deserialized from JSON upon
 4. **Reduced Dependencies**: Removed the dependency on ZMQ, which is a complex library.
 5. **Better Error Handling**: The IPC package provides better error handling and more meaningful error messages.
 
-## Testing
+### 6. Written Unit and Integration Tests
+
+- **ipc/unix_test.go**: Unit tests for Unix socket client/server
+- **root-daemon/daemon_test.go**: Unit tests for daemon hosts-file manipulation and IPC handling
+- **app_test.go**: Unit tests for app-level IPC and daemon lifecycle methods
+- **test-socket-connection.sh**: Shell script for manual socket connection testing
+
+### 7. Frontend Improvements
+
+Significant UI work was done alongside the IPC migration:
+
+- Extracted `Header.svelte` and `Footer.svelte` from `+page.svelte`
+- Added `theme.ts` with dark/light mode logic and corresponding `theme.spec.ts` tests
+- Added tabbed navigation (Focus / Block / Debug tabs) with `ui/tabs` components
+- Added `ui/tooltip` components for icon labels
+- Added `ui/switch` component
+- Added `debug.svelte` tab for daemon connection status
+- Renamed the app from "Free-Mind" to "Free Mind"
+- Added `Header.svelte.spec.ts` and `Footer.svelte.spec.ts` unit tests
+
+### 8. Documentation and Project Setup
+
+- Added `CLAUDE.md` with full architecture overview and build instructions
+- Added `docs/architecture.md` with architecture diagrams
+- Added `.claude/skills/run/SKILL.md` and `.claude/skills/renovate-merge/SKILL.md`
+- Added `README.md`
+
+## Socket Path Note
+
+The actual socket path used is `/tmp/tech.tanay.free-mind.sock` (not `/run/...`), chosen because `/tmp` is writable by all users without requiring root for socket creation.
+
+## Testing Status
+
+Unit tests are written and cover cases 1–5 from the testing plan. Cross-platform execution (Linux, macOS, Windows) is pending.
+
+## Testing Plan
 
 A testing plan has been created to test the implementation on different platforms:
 

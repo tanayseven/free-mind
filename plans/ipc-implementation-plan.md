@@ -6,12 +6,12 @@ This plan outlines the implementation of a new IPC (Inter-Process Communication)
 
 ## Goals
 
-1. Create a platform-independent IPC interface
-2. Implement Unix socket-based IPC for Linux and Darwin
-3. Implement Windows named pipe-based IPC for Windows
-4. Update the root daemon to use the new IPC package
-5. Update the app to use the new IPC client
-6. Remove ZMQ dependencies
+1. ~~Create a platform-independent IPC interface~~ ✓
+2. ~~Implement Unix socket-based IPC for Linux and Darwin~~ ✓
+3. ~~Implement Windows named pipe-based IPC for Windows~~ ✓
+4. ~~Update the root daemon to use the new IPC package~~ ✓
+5. ~~Update the app to use the new IPC client~~ ✓
+6. ~~Remove ZMQ dependencies~~ ✓
 
 ## Architecture
 
@@ -35,7 +35,7 @@ The IPC interface will define three main components:
 
 #### Unix Socket Implementation (Linux/Darwin)
 - Use Go's standard `net` package for Unix domain sockets
-- Socket path: `/run/tech.tanay.free-mind.sock`
+- Socket path: `/tmp/tech.tanay.free-mind.sock`
 - Implement JSON message serialization/deserialization
 
 #### Windows Named Pipe Implementation
@@ -90,4 +90,6 @@ graph TD
 - [x] Update root-daemon/main.go to use the new IPC package
 - [x] Update app.go to use the new IPC client
 - [x] Remove ZMQ related code from both files
-- [ ] Test the implementation for different platforms
+- [x] Write unit tests (`ipc/unix_test.go`, `root-daemon/daemon_test.go`, `app_test.go`)
+- [x] Add shell integration test (`test-socket-connection.sh`)
+- [ ] Run tests on each platform (Linux, macOS, Windows)
