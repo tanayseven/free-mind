@@ -4,8 +4,22 @@
     import { Environment } from "../../wailsjs/runtime/runtime";
     import { Switch } from "@/components/ui/switch";
     import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    import * as ToggleGroup from "$lib/components/ui/toggle-group/index.js";
+    import * as Alert from "$lib/components/ui/alert/index.js";
     import { House, LayoutGrid, List, Settings, Sun, Moon } from "@lucide/svelte";
+    import AlertCircleIcon from "@lucide/svelte/icons/alert-circle";
     import { applyTheme, detectInitialTheme } from "$lib/theme";
+    import FreeMode from "$lib/components/modes/FreeMode.svelte";
+    import TimerMode from "$lib/components/modes/TimerMode.svelte";
+    import ScheduleMode from "$lib/components/modes/ScheduleMode.svelte";
+    import PomodoroMode from "$lib/components/modes/PomodoroMode.svelte";
+
+    const modeLabels: Record<string, string> = {
+        free: "⛓️‍💥 Free",
+        timer: "⏲️ Timer",
+        schedule: "🗓️ Schedule",
+        pomodoro: "⏰ Pomodoro",
+    };
 
     let daemonStatus = $state("Loading... Please wait.");
     let isLoading = $state(true);
@@ -13,6 +27,7 @@
     let isBlocking = $state(false);
     let isMac = $state(false);
     let isDark = $state(false);
+    let selectedMode = $state("free");
 
     function toggleDark(checked: boolean) {
         isDark = checked;
@@ -237,38 +252,83 @@
                 <p class="mt-2 px-4 text-xs text-muted-foreground text-center">{daemonStatus}</p>
             {/if}
 
-            <TabsContent value="home" class="flex flex-1 items-center justify-center">
-                <div class="flex flex-col items-center gap-5">
-                    <!-- Glowing status dot -->
-                    <div class="flex items-center gap-2.5">
-                        {#if isBlocking}
-                            <span class="relative flex size-4">
-                                <span class="absolute -inset-1 inline-flex rounded-full bg-red-500/25 animate-ping [animation-duration:1.6s]"></span>
-                                <span class="absolute inline-flex h-full w-full rounded-full bg-red-500/70 animate-ping"></span>
-                                <span class="relative inline-flex size-4 rounded-full bg-red-500 shadow-[0_0_16px_6px_rgba(239,68,68,0.65)] animate-pulse"></span>
-                            </span>
-                        {:else}
-                            <span class="relative flex size-4">
-                                <span class="inline-flex size-4 rounded-full bg-green-500 shadow-[0_0_10px_3px_rgba(34,197,94,0.4)]"></span>
-                            </span>
-                        {/if}
-                        <span class="text-sm font-medium {isBlocking ? 'text-red-500' : 'text-green-500'}">
-                            {isBlocking ? 'Blocking' : 'Not blocking'}
-                        </span>
-                    </div>
-
-                    <!-- Small compact toggle -->
-                    <Switch
-                        checked={isBlocking}
-                        onCheckedChange={(checked) => checked ? sendStartCommand() : sendStopCommand()}
+            <TabsContent value="home" class="flex flex-1 flex-col items-center justify-center gap-3 p-6">
+                <span class="text-xs text-muted-foreground font-medium tracking-wide uppercase">
+                    {modeLabels[selectedMode]}
+                </span>
+                {#if selectedMode === "free"}
+                    <FreeMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
                         disabled={isLoading || showInstallButton}
-                        size="sm"
                     />
-                </div>
+                {:else if selectedMode === "timer"}
+                    <TimerMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
+                {:else if selectedMode === "schedule"}
+                    <ScheduleMode {isBlocking} />
+                {:else if selectedMode === "pomodoro"}
+                    <PomodoroMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
+                {/if}
             </TabsContent>
 
-            <TabsContent value="modes" class="flex flex-1 items-center justify-center">
-                <p class="text-muted-foreground text-sm">Modes — coming soon.</p>
+            <TabsContent value="modes" class="flex flex-1 flex-col items-center gap-6 p-6">
+                {#if isBlocking}
+                    <Alert.Root variant="destructive" class="w-full max-w-sm">
+                        <AlertCircleIcon />
+                        <Alert.Title>Blocking is active</Alert.Title>
+                        <Alert.Description>
+                            Stop blocking before switching modes.
+                        </Alert.Description>
+                    </Alert.Root>
+                {/if}
+
+                <ToggleGroup.Root
+                    type="single"
+                    bind:value={selectedMode}
+                    disabled={isBlocking}
+                    class="flex-wrap justify-center"
+                >
+                    <ToggleGroup.Item value="free">⛓️‍💥 Free</ToggleGroup.Item>
+                    <ToggleGroup.Item value="timer">⏲️ Timer</ToggleGroup.Item>
+                    <ToggleGroup.Item value="schedule">🗓️ Schedule</ToggleGroup.Item>
+                    <ToggleGroup.Item value="pomodoro">⏰ Pomodoro</ToggleGroup.Item>
+                </ToggleGroup.Root>
+
+                {#if selectedMode === "free"}
+                    <FreeMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
+                {:else if selectedMode === "timer"}
+                    <TimerMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
+                {:else if selectedMode === "schedule"}
+                    <ScheduleMode {isBlocking} />
+                {:else if selectedMode === "pomodoro"}
+                    <PomodoroMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
+                {/if}
             </TabsContent>
 
             <TabsContent value="websites" class="flex flex-1 items-center justify-center">

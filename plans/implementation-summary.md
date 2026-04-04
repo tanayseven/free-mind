@@ -96,14 +96,17 @@ Messages are serialized to JSON for transmission and deserialized from JSON upon
 
 Significant UI work was done alongside the IPC migration:
 
-- Extracted `Header.svelte` and `Footer.svelte` from `+page.svelte`
+- Extracted `Footer.svelte` from `+page.svelte` (with `Footer.svelte.spec.ts` unit tests)
+- Header inlined directly into `+page.svelte` (a separate `Header.svelte` was created then removed)
+- Added dark mode toggle (Switch component) with `applyTheme`/`detectInitialTheme` from `theme.ts`
+- Added daemon connection status indicator in the header area
 - Added `theme.ts` with dark/light mode logic and corresponding `theme.spec.ts` tests
 - Added tabbed navigation (Focus / Block / Debug tabs) with `ui/tabs` components
 - Added `ui/tooltip` components for icon labels
 - Added `ui/switch` component
 - Added `debug.svelte` tab for daemon connection status
 - Renamed the app from "Free-Mind" to "Free Mind"
-- Added `Header.svelte.spec.ts` and `Footer.svelte.spec.ts` unit tests
+- Converted state variables to Svelte 5 `$state()` runes
 
 ### 8. Documentation and Project Setup
 
@@ -111,6 +114,33 @@ Significant UI work was done alongside the IPC migration:
 - Added `docs/architecture.md` with architecture diagrams
 - Added `.claude/skills/run/SKILL.md` and `.claude/skills/renovate-merge/SKILL.md`
 - Added `README.md`
+
+### 9. Modes UI
+
+Added a four-mode blocking system to the frontend:
+
+- **⛓️‍💥 Free** — simple toggle switch (previously the only home-screen control)
+- **⏲️ Timer** — duration presets (15 min / 30 min / 1 h / 2 h) with a start/stop button; backend pending
+- **🗓️ Schedule** — day-of-week selector with a time-range picker; backend pending
+- **⏰ Pomodoro** — configurable work/break/cycle counts with a start/stop button; backend pending
+
+New files:
+
+| File | Role |
+|------|------|
+| `frontend/src/lib/components/modes/StatusDot.svelte` | Shared LED blinker (red pulsing = blocking, green = not blocking) |
+| `frontend/src/lib/components/modes/FreeMode.svelte` | Free-mode widget |
+| `frontend/src/lib/components/modes/TimerMode.svelte` | Timer-mode widget |
+| `frontend/src/lib/components/modes/ScheduleMode.svelte` | Schedule-mode widget |
+| `frontend/src/lib/components/modes/PomodoroMode.svelte` | Pomodoro-mode widget |
+
+Home tab changes:
+- Shows the active mode label (e.g. "⛓️‍💥 Free") above the current mode's widget.
+- Mode widget always includes the `StatusDot` LED blinker.
+
+Modes tab changes:
+- `ToggleGroup` (single-select) to switch between the four modes.
+- Destructive `Alert` appears when blocking is active, and the `ToggleGroup` is disabled — mode browsing is read-only while blocking.
 
 ## Socket Path Note
 
