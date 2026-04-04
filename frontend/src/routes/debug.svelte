@@ -55,11 +55,11 @@
 </script>
 
 <svelte:head>
-    <title>Debug - Free-Mind</title>
+    <title>Debug - Free Mind</title>
 </svelte:head>
 
 <div class="p-4 max-w-4xl mx-auto">
-    <h1 class="text-2xl font-bold mb-4">Free-Mind Debug Information</h1>
+    <h1 class="text-2xl font-bold mb-4">Free Mind Debug Information</h1>
     
     <div class="mb-4 p-4 bg-muted rounded-lg">
         <button 
