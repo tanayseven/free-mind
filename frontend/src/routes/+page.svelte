@@ -215,7 +215,7 @@
                 <span class="font-bold text-lg tracking-tight shrink-0">Free Mind</span>
 
                 <div class="flex-1 flex justify-center">
-                    <TabsList class="h-10">
+                    <TabsList variant="line" class="h-10">
                         <TabsTrigger value="home" class="text-sm px-4 h-8 gap-1.5">
                             <House class="size-3.5" />
                             Home
