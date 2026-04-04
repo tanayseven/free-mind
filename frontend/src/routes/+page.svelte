@@ -176,9 +176,9 @@
         </div>
     {:else if showInstallButton}
         <div class="flex flex-1 flex-col items-center justify-center gap-2">
-            <p class="text-red-500">{daemonStatus}</p>
+            <p class="text-destructive">{daemonStatus}</p>
             <button
-                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-blue-500 text-white shadow-xs hover:bg-blue-600"
+                class="h-10 rounded-md px-6 inline-flex items-center justify-center whitespace-nowrap text-sm font-medium bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
                 on:click={installDaemon}
             >
                 Install Daemon
@@ -215,10 +215,10 @@
                         disabled={isLoading || showInstallButton}
                         size="lg"
                         class={isBlocking
-                            ? "data-[state=checked]:bg-red-500"
-                            : "data-[state=unchecked]:bg-green-500"}
+                            ? "data-[state=checked]:bg-destructive"
+                            : "data-[state=unchecked]:bg-primary"}
                     />
-                    <span class="text-lg font-semibold {isBlocking ? 'text-red-500' : 'text-green-500'}">
+                    <span class="text-lg font-semibold {isBlocking ? 'text-destructive' : 'text-primary'}">
                         {isBlocking ? "Stop" : "Start"}
                     </span>
                 </div>

@@ -88,7 +88,7 @@ This document outlines the testing plan for the new IPC implementation across di
 ### Linux/macOS
 
 **Test Steps:**
-1. Verify the Unix socket is created at `/run/tech.tanay.free-mind.sock`
+1. Verify the Unix socket is created at `/tmp/tech.tanay.free-mind.sock`
 2. Verify the socket permissions are set correctly
 3. Verify the socket is removed when the daemon is stopped
 
@@ -117,7 +117,10 @@ This document outlines the testing plan for the new IPC implementation across di
 
 ## Test Execution
 
-- [x] Write unit tests for IPC package, daemon, and app
+- [x] Write unit tests for IPC package (`ipc/unix_test.go`)
+- [x] Write unit tests for daemon (`root-daemon/daemon_test.go`)
+- [x] Write unit tests for app (`app_test.go`)
+- [x] Add shell integration test (`test-socket-connection.sh`)
 - [ ] Run the tests on each platform (Linux, macOS, Windows)
 - [ ] Document any issues or failures
 - [ ] Fix any issues and retest
