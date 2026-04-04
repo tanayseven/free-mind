@@ -1,6 +1,6 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "free-mind",
+  "name": "Free Mind",
   "outputfilename": "free-mind",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
