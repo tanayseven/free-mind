@@ -3,24 +3,19 @@
     import { Switch } from "@/components/ui/switch";
     import { Sun, Moon } from "@lucide/svelte";
     import { onMount } from "svelte";
+    import { applyTheme, detectInitialTheme } from "$lib/theme";
 
     let isDark = $state(false);
 
     function toggleDark(checked: boolean) {
         isDark = checked;
-        if (checked) {
-            document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-        }
+        applyTheme(checked, document.documentElement.classList, localStorage);
     }
 
     onMount(() => {
-        const saved = localStorage.getItem('theme');
-        if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            isDark = true;
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        isDark = detectInitialTheme(localStorage, prefersDark);
+        if (isDark) {
             document.documentElement.classList.add('dark');
         }
     });
