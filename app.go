@@ -3,28 +3,23 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	"gopkg.in/zeromq/goczmq.v4"
+	"free-mind/ipc"
 )
 
-// Message represents the JSON structure for communication
-type Message struct {
-	Action  string `json:"action"`
-	Content string `json:"content"`
-}
-
-// Global ZMQ dealer
-var dealer *goczmq.Sock
+//go:embed data/default-blocklist.json
+var defaultBlocklistJSON []byte
 
 // App struct
 type App struct {
@@ -40,182 +35,72 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	log.Println("Application started successfully")
 }
 
-func FreeMindDaemonPortPath() string {
+func FreeMindDaemonSocketPath() string {
 	switch runtime.GOOS {
 	case "windows":
-		return `C:\Windows\System32\drivers\etc\free-mind-daemon-port-number`
+		return `C:\Windows\System32\drivers\etc\free-mind-daemon-socket-path`
 	case "darwin", "linux":
-		return "/etc/free-mind-daemon-port-number"
+		return "/etc/free-mind-daemon-socket-path"
 	default:
+		log.Printf("Unsupported platform: %s for socket path", runtime.GOOS)
 		return ""
 	}
 }
 
-func (a *App) FetchDaemonPort() string {
-	// Read the contents of the file from daemon port path
-	portPath := FreeMindDaemonPortPath()
-	portData, err := os.ReadFile(portPath)
+func (a *App) ConnectToDaemon() string {
+	c := ipc.NewClient()
+	err := c.Connect()
 	if err != nil {
-		log.Printf("Error reading daemon port file: %v", err)
+		log.Printf("Error connecting to daemon: %v", err)
 		return fmt.Sprintf("Error: %v", err)
 	}
+	path := c.Path()
+	c.Close()
+	return fmt.Sprintf("Connected to daemon at %s", path)
+}
 
-	// Convert port string to integer
-	portStr := strings.TrimSpace(string(portData))
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Printf("Error converting port to integer: %v", err)
-		return fmt.Sprintf("Error: %v", err)
+func sendMessage(msg *ipc.Message) (*ipc.Message, error) {
+	c := ipc.NewClient()
+	if err := c.Connect(); err != nil {
+		return nil, fmt.Errorf("connect: %v", err)
 	}
-
-	// Start a zmq dealer on that port
-	var dealerErr error
-	dealer, dealerErr = goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", port))
-	if dealerErr != nil {
-		log.Printf("Error creating ZMQ dealer: %v", dealerErr)
-		return fmt.Sprintf("Error: %v", dealerErr)
+	defer c.Close()
+	if err := c.Send(msg); err != nil {
+		return nil, fmt.Errorf("send: %v", err)
 	}
-
-	return fmt.Sprintf("Connected to daemon on port %d", port)
+	return c.Receive()
 }
 
 func (a *App) SendBlockList(list string) bool {
-	// Check if the zmq dealer is set in the variable else exit with error
-	if dealer == nil {
-		log.Println("ZMQ dealer not initialized. Call FetchDaemonPort first.")
-		return false
-	}
-
-	// Create a message to send
-	msg := Message{
-		Action:  "update",
-		Content: list,
-	}
-
-	// Marshal the message to JSON
-	jsonData, err := json.Marshal(msg)
+	reply, err := sendMessage(&ipc.Message{Action: "update", Content: list})
 	if err != nil {
-		log.Printf("Error marshaling JSON: %v", err)
+		log.Printf("Error in SendBlockList: %v", err)
 		return false
 	}
-
-	// Send the JSON data
-	err = dealer.SendFrame(jsonData, goczmq.FlagNone)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-		return false
-	}
-
-	// Receive the reply
-	reply, err := dealer.RecvMessage()
-	if err != nil {
-		log.Printf("Error receiving response: %v", err)
-		return false
-	}
-
-	// Parse the received JSON response
-	var responseMsg Message
-	err = json.Unmarshal(reply[0], &responseMsg)
-	if err != nil {
-		log.Printf("Error unmarshaling response JSON: %v", err)
-		return false
-	}
-
-	// Check if the daemon received the message successfully
-	return responseMsg.Action == "response" && responseMsg.Content == "Message received successfully"
+	return reply.Action == "response" && reply.Content == "Message received successfully"
 }
 
 func (a *App) StartBlocking() bool {
-	// Check if the zmq dealer is set in the variable else exit with error
-	if dealer == nil {
-		log.Println("ZMQ dealer not initialized. Call FetchDaemonPort first.")
-		return false
-	}
-
-	// Create a message to send
-	msg := Message{
-		Action:  "start",
-		Content: "",
-	}
-
-	// Marshal the message to JSON
-	jsonData, err := json.Marshal(msg)
+	reply, err := sendMessage(&ipc.Message{Action: "start", Content: ""})
 	if err != nil {
-		log.Printf("Error marshaling JSON: %v", err)
+		log.Printf("Error in StartBlocking: %v", err)
 		return false
 	}
-
-	// Send the JSON data
-	err = dealer.SendFrame(jsonData, goczmq.FlagNone)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-		return false
-	}
-
-	// Receive the reply
-	reply, err := dealer.RecvMessage()
-	if err != nil {
-		log.Printf("Error receiving response: %v", err)
-		return false
-	}
-
-	// Parse the received JSON response
-	var responseMsg Message
-	err = json.Unmarshal(reply[0], &responseMsg)
-	if err != nil {
-		log.Printf("Error unmarshaling response JSON: %v", err)
-		return false
-	}
-
-	// Check if the daemon received the message successfully
-	return responseMsg.Action == "response" && responseMsg.Content == "Message received successfully"
+	return reply.Action == "response" && reply.Content == "Message received successfully"
 }
 
 func (a *App) StopBlocking() string {
-	// Check if the zmq dealer is set in the variable else exit with error
-	if dealer == nil {
-		return "Error: ZMQ dealer not initialized. Call FetchDaemonPort first."
-	}
-
-	// Create a message to send
-	msg := Message{
-		Action:  "stop",
-		Content: "",
-	}
-
-	// Marshal the message to JSON
-	jsonData, err := json.Marshal(msg)
+	reply, err := sendMessage(&ipc.Message{Action: "stop", Content: ""})
 	if err != nil {
-		return fmt.Sprintf("Error marshaling JSON: %v", err)
+		return fmt.Sprintf("Error in StopBlocking: %v", err)
 	}
-
-	// Send the JSON data
-	err = dealer.SendFrame(jsonData, goczmq.FlagNone)
-	if err != nil {
-		return fmt.Sprintf("Error sending message: %v", err)
-	}
-
-	// Receive the reply
-	reply, err := dealer.RecvMessage()
-	if err != nil {
-		return fmt.Sprintf("Error receiving response: %v", err)
-	}
-
-	// Parse the received JSON response
-	var responseMsg Message
-	err = json.Unmarshal(reply[0], &responseMsg)
-	if err != nil {
-		return fmt.Sprintf("Error unmarshaling response JSON: %v", err)
-	}
-
-	// Check if the daemon received the message successfully
-	if responseMsg.Action == "response" && responseMsg.Content == "Message received successfully" {
+	if reply.Action == "response" && reply.Content == "Message received successfully" {
 		return "Blocking stopped successfully"
-	} else {
-		return "Failed to stop blocking"
 	}
+	return "Failed to stop blocking"
 }
 
 func (a *App) HostsFilePath() string {
@@ -305,18 +190,27 @@ func (a *App) ExtractDaemonBinary() (string, error) {
 
 // InstallDaemonBinary installs the daemon binary to the appropriate system location with elevated privileges
 func (a *App) InstallDaemonBinary() string {
+	log.Println("Starting InstallDaemonBinary function")
+
 	// Extract the daemon binary to a temporary file
 	tempBinaryPath, err := a.ExtractDaemonBinary()
 	if err != nil {
 		return fmt.Sprintf("Error extracting daemon binary: %v", err)
 	}
-	defer os.Remove(tempBinaryPath) // Clean up the temporary file
+	defer func() {
+		// Clean up the temporary file
+		if tempBinaryPath != "" {
+			os.Remove(tempBinaryPath)
+		}
+	}()
+	log.Printf("Successfully extracted daemon binary to temporary path: %s", tempBinaryPath)
 
 	// Define the destination path
 	destPath := a.GetDaemonBinaryDestination()
 	if destPath == "" {
 		return fmt.Sprintf("Unsupported platform: %s", runtime.GOOS)
 	}
+	log.Printf("Daemon will be installed to: %s", destPath)
 
 	// Use the appropriate command to install the binary with elevated privileges based on the OS
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -326,16 +220,19 @@ func (a *App) InstallDaemonBinary() string {
 
 	switch runtime.GOOS {
 	case "windows":
+		log.Println("Using Windows installation method")
 		// On Windows, use PowerShell with elevated privileges
 		copyCmd := fmt.Sprintf("Copy-Item -Path '%s' -Destination '%s' -Force", tempBinaryPath, destPath)
 		cmd = exec.CommandContext(ctx, "powershell", "-Command", "Start-Process", "powershell",
 			"-Verb", "RunAs", "-ArgumentList", fmt.Sprintf("'%s'", copyCmd))
 	case "darwin":
+		log.Println("Using macOS installation method")
 		// On macOS, use osascript to run a shell command with sudo
 		copyCmd := fmt.Sprintf("cp %s %s && chmod 755 %s", tempBinaryPath, destPath, destPath)
 		appleScript := fmt.Sprintf(`do shell script "%s" with administrator privileges`, copyCmd)
 		cmd = exec.CommandContext(ctx, "osascript", "-e", appleScript)
 	case "linux":
+		log.Println("Using Linux installation method")
 		// On Linux, use pkexec
 		cmd = exec.CommandContext(ctx, "pkexec", "sh", "-c",
 			fmt.Sprintf("cp %s %s && chmod 755 %s", tempBinaryPath, destPath, destPath))
@@ -347,12 +244,18 @@ func (a *App) InstallDaemonBinary() string {
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
+	log.Printf("Executing installation command: %v", cmd.Args)
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Sprintf("Error installing daemon binary: %v\n%s", err, stderr.String())
+		errorMsg := fmt.Sprintf("Error installing daemon binary: %v\nStderr: %s", err, stderr.String())
+		log.Println(errorMsg)
+		return errorMsg
 	}
 
-	return fmt.Sprintf("Daemon binary successfully installed to %s", destPath)
+	log.Printf("Successfully installed daemon to: %s", destPath)
+	result := fmt.Sprintf("Daemon binary successfully installed to %s", destPath)
+	log.Println(result)
+	return result
 }
 
 // InstallDaemonWithOneClick is a frontend-exposed method to install the daemon with one click
@@ -371,14 +274,16 @@ func (a *App) InstallDaemonWithOneClick() string {
 // CheckDaemonInstalled checks if the daemon is installed and running
 func (a *App) CheckDaemonInstalled() bool {
 	log.Println("Checking if daemon is installed and running...")
-
+	
 	// Check if the daemon binary exists
 	destPath := a.GetDaemonBinaryDestination()
 	if destPath == "" {
 		log.Printf("Unsupported platform: %s", runtime.GOOS)
 		return false
 	}
-
+	
+	log.Printf("Checking for daemon binary at: %s", destPath)
+	
 	// Check if the binary file exists
 	_, err := os.Stat(destPath)
 	if err != nil {
@@ -389,42 +294,17 @@ func (a *App) CheckDaemonInstalled() bool {
 		}
 		return false
 	}
-
-	// Check if the daemon port file exists
-	portPath := FreeMindDaemonPortPath()
-	_, err = os.Stat(portPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			log.Println("Daemon port file not found at:", portPath)
-		} else {
-			log.Printf("Error checking daemon port file: %v", err)
-		}
-		return false
-	}
-
+	log.Println("Daemon binary exists")
+	
 	// Try to connect to the daemon
-	portData, err := os.ReadFile(portPath)
-	if err != nil {
-		log.Printf("Error reading daemon port file: %v", err)
-		return false
-	}
-
-	// Convert port string to integer
-	portStr := strings.TrimSpace(string(portData))
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Printf("Error converting port to integer: %v", err)
-		return false
-	}
-
-	// Try to create a ZMQ dealer to test the connection
-	testDealer, err := goczmq.NewDealer(fmt.Sprintf("tcp://127.0.0.1:%d", port))
+	testClient := ipc.NewClient()
+	err = testClient.Connect()
 	if err != nil {
 		log.Printf("Error connecting to daemon: %v", err)
 		return false
 	}
-	testDealer.Destroy()
-
+	testClient.Close()
+	
 	log.Println("Daemon is installed and running")
 	return true
 }
@@ -445,38 +325,308 @@ func (a *App) InstallAndStartDaemon() string {
 
 	// Check if installation was successful
 	if !strings.Contains(installResult, "successfully") {
-		return fmt.Sprintf("Failed to install daemon: %s", installResult)
+		errorMsg := fmt.Sprintf("Failed to install daemon: %s", installResult)
+		log.Println(errorMsg)
+		return errorMsg
 	}
 
 	// Start the daemon
 	var cmd *exec.Cmd
 	destPath := a.GetDaemonBinaryDestination()
 
+	log.Printf("Attempting to start daemon from path: %s", destPath)
+	
+	// Check if the daemon is already running by checking for the socket file
+	var socketPath string
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		socketPath = "/tmp/tech.tanay.free-mind.sock"
+		log.Printf("DEBUG: Unix socket path set to: %s", socketPath)
+	} else {
+		// For Windows, use the appropriate named pipe path
+		socketPath = `\\.\pipe\tech.tanay.free-mind`
+		log.Printf("DEBUG: Windows pipe path set to: %s", socketPath)
+	}
+	
+	_, err := os.Stat(socketPath)
+	if err == nil {
+		log.Printf("Socket file already exists at %s, checking if it's active", socketPath)
+		// Try to connect to see if it's a valid socket
+		testClient := ipc.NewClient()
+		err = testClient.Connect()
+		if err != nil {
+			log.Printf("Socket file exists but connection failed: %v. Removing stale socket file.", err)
+			os.Remove(socketPath)
+		} else {
+			log.Printf("Successfully connected to existing socket, daemon is already running")
+			testClient.Close()
+			return "Daemon is already running"
+		}
+	} else {
+		log.Printf("Socket file check result: %v", err)
+	}
+
 	switch runtime.GOOS {
 	case "windows":
+		log.Println("Using Windows daemon startup method")
 		cmd = exec.Command("powershell", "-Command", "Start-Process", destPath, "-WindowStyle", "Hidden")
 	case "darwin", "linux":
+		log.Println("Using Linux/macOS daemon startup method")
 		// Start the daemon with pkexec for elevated privileges
-		cmd = exec.Command("pkexec", destPath)
+		// Use nohup to ensure the daemon keeps running even if pkexec exits
+		cmd = exec.Command("pkexec", "sh", "-c", fmt.Sprintf("nohup %s > /tmp/free-mind-daemon.log 2>&1 &", destPath))
+		log.Printf("DEBUG: Starting daemon with command: pkexec sh -c 'nohup %s > /tmp/free-mind-daemon.log 2>&1 &'", destPath)
 	default:
-		return fmt.Sprintf("Unsupported platform: %s", runtime.GOOS)
+		errorMsg := fmt.Sprintf("Unsupported platform: %s", runtime.GOOS)
+		log.Println(errorMsg)
+		return errorMsg
 	}
 
 	// Start the daemon in the background
-	err := cmd.Start()
+	log.Printf("Starting daemon command: %v", cmd.Args)
+	err = cmd.Start()
 	if err != nil {
-		return fmt.Sprintf("Failed to start daemon: %v", err)
+		errorMsg := fmt.Sprintf("Failed to start daemon: %v", err)
+		log.Println(errorMsg)
+		return errorMsg
 	}
 
-	// Wait a moment for the daemon to initialize
-	time.Sleep(2 * time.Second)
+	log.Println("Daemon process started successfully")
+
+	// Wait for the daemon to initialize and create the socket
+	log.Println("Waiting for daemon to initialize and create socket...")
+	maxRetries := 20
+	retryDelay := 500 * time.Millisecond
+	socketCreated := false
+	
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryDelay)
+		
+		// Check if the socket file exists
+		if fileInfo, err := os.Stat(socketPath); err == nil {
+			// Verify it's a socket file
+			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+				// On Unix systems, check if it's a socket
+				if fileInfo.Mode()&os.ModeSocket != 0 {
+					log.Printf("Valid socket file detected after %d retries", i+1)
+					socketCreated = true
+					break
+				} else {
+					log.Printf("File exists but is not a socket (mode: %v), retrying...", fileInfo.Mode())
+				}
+			} else {
+				// On Windows, we can't easily check if it's a named pipe, so just assume it is
+				log.Printf("Socket file detected after %d retries", i+1)
+				socketCreated = true
+				break
+			}
+		} else if i == maxRetries-1 {
+			log.Printf("Socket file not created after %d retries", maxRetries)
+		} else {
+			log.Printf("Waiting for socket file (retry %d/%d)...", i+1, maxRetries)
+		}
+	}
+	
+	if !socketCreated {
+		log.Printf("WARNING: Socket file was not created within the expected time")
+	}
 
 	// Check if the daemon is now running
 	if a.CheckDaemonInstalled() {
-		return "Daemon successfully installed and started"
+		result := "Daemon successfully installed and started"
+		log.Println(result)
+		return result
 	} else {
-		return "Daemon was installed but failed to start properly"
+		errorMsg := "Daemon was installed but failed to start properly"
+		log.Println(errorMsg)
+		return errorMsg
 	}
+}
+
+type defaultBlocklistCategory struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Icon    string   `json:"icon"`
+	Blocked bool     `json:"blocked"`
+	Sites   []string `json:"sites"`
+}
+
+type defaultBlocklist struct {
+	Version    string                    `json:"version"`
+	Name       string                    `json:"name"`
+	Categories []defaultBlocklistCategory `json:"categories"`
+}
+
+type websiteEntry struct {
+	ID       string `json:"id"`
+	Domain   string `json:"domain"`
+	Category string `json:"category"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// buildDefaultWebsitesJSON parses the embedded default-blocklist.json and
+// returns a flat []websiteEntry JSON string suitable for blocked-websites.json.
+func buildDefaultWebsitesJSON() (string, error) {
+	var bl defaultBlocklist
+	if err := json.Unmarshal(defaultBlocklistJSON, &bl); err != nil {
+		return "", fmt.Errorf("parse default-blocklist.json: %v", err)
+	}
+	var entries []websiteEntry
+	id := 1
+	for _, cat := range bl.Categories {
+		for _, site := range cat.Sites {
+			entries = append(entries, websiteEntry{
+				ID:       fmt.Sprintf("%d", id),
+				Domain:   site,
+				Category: cat.Name,
+				Enabled:  cat.Blocked,
+			})
+			id++
+		}
+	}
+	out, err := json.Marshal(entries)
+	if err != nil {
+		return "", fmt.Errorf("marshal website entries: %v", err)
+	}
+	return string(out), nil
+}
+
+func blockedWebsitesPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get home directory: %v", err)
+	}
+	return filepath.Join(home, ".free-mind", "blocked-websites.json"), nil
+}
+
+// AppSettings holds user-configurable application settings.
+type AppSettings struct {
+	UnblockWaiting int `json:"unblockWaiting"` // seconds to wait before unblocking
+}
+
+func settingsPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get home directory: %v", err)
+	}
+	return filepath.Join(home, ".free-mind", "settings.json"), nil
+}
+
+// LoadSettings reads $HOME/.free-mind/settings.json.
+// If the file does not exist, it writes and returns the defaults.
+func (a *App) LoadSettings() AppSettings {
+	defaults := AppSettings{UnblockWaiting: 30}
+	path, err := settingsPath()
+	if err != nil {
+		log.Printf("LoadSettings: %v", err)
+		return defaults
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if saveErr := writeSettings(path, defaults); saveErr != nil {
+				log.Printf("LoadSettings: failed to write defaults: %v", saveErr)
+			}
+			return defaults
+		}
+		log.Printf("LoadSettings: read error: %v", err)
+		return defaults
+	}
+	var s AppSettings
+	if err := json.Unmarshal(data, &s); err != nil {
+		log.Printf("LoadSettings: parse error: %v", err)
+		return defaults
+	}
+	return s
+}
+
+// SaveSettings writes the settings to $HOME/.free-mind/settings.json.
+func (a *App) SaveSettings(s AppSettings) bool {
+	path, err := settingsPath()
+	if err != nil {
+		log.Printf("SaveSettings: %v", err)
+		return false
+	}
+	if err := writeSettings(path, s); err != nil {
+		log.Printf("SaveSettings: %v", err)
+		return false
+	}
+	return true
+}
+
+func writeSettings(path string, s AppSettings) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal settings: %v", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func writeBlockedWebsites(path, data string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
+	return os.WriteFile(path, []byte(data), 0644)
+}
+
+// LoadBlockedWebsites reads $HOME/.free-mind/blocked-websites.json.
+// If the file does not exist, it converts data/default-blocklist.json to the
+// flat entry format, writes it, and returns it.
+func (a *App) LoadBlockedWebsites() string {
+	path, err := blockedWebsitesPath()
+	if err != nil {
+		log.Printf("LoadBlockedWebsites: %v", err)
+		return "[]"
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			defaults, buildErr := buildDefaultWebsitesJSON()
+			if buildErr != nil {
+				log.Printf("LoadBlockedWebsites: %v", buildErr)
+				return "[]"
+			}
+			if writeErr := writeBlockedWebsites(path, defaults); writeErr != nil {
+				log.Printf("LoadBlockedWebsites: failed to write defaults: %v", writeErr)
+			}
+			return defaults
+		}
+		log.Printf("LoadBlockedWebsites: read error: %v", err)
+		return "[]"
+	}
+	return string(data)
+}
+
+// SaveBlockedWebsites writes the JSON to $HOME/.free-mind/blocked-websites.json.
+func (a *App) SaveBlockedWebsites(websitesJSON string) bool {
+	path, err := blockedWebsitesPath()
+	if err != nil {
+		log.Printf("SaveBlockedWebsites: %v", err)
+		return false
+	}
+	if err := writeBlockedWebsites(path, websitesJSON); err != nil {
+		log.Printf("SaveBlockedWebsites: %v", err)
+		return false
+	}
+	return true
+}
+
+const hostsStartMarker = "########## START OF FREE-MIND BLOCK LIST ##########"
+
+// CheckBlocking returns true if Free Mind's block list is currently active in /etc/hosts
+func (a *App) CheckBlocking() bool {
+	hostsPath := a.HostsFilePath()
+	if hostsPath == "" {
+		return false
+	}
+	content, err := os.ReadFile(hostsPath)
+	if err != nil {
+		log.Printf("Error reading hosts file: %v", err)
+		return false
+	}
+	return strings.Contains(string(content), hostsStartMarker)
 }
 
 // CheckAndInstallDaemon checks if the daemon is installed and running, and installs it if not
