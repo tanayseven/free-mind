@@ -1,7 +1,9 @@
 <script lang="ts">
     import { Switch } from "@/components/ui/switch";
     import * as Table from "@/components/ui/table";
+    import * as Alert from "$lib/components/ui/alert/index.js";
     import { Search, Pencil, Check, X, Trash2, Plus } from "@lucide/svelte";
+    import InfoIcon from "@lucide/svelte/icons/info";
 
     export type WebsiteEntry = {
         id: string;
@@ -21,8 +23,10 @@
             { id: "5", domain: "instagram.com", category: "Social", enabled: true },
             { id: "6", domain: "www.instagram.com", category: "Social", enabled: true },
         ]),
+        isBlocking = false,
     }: {
         websites?: WebsiteEntry[];
+        isBlocking?: boolean;
     } = $props();
 
     let filterText = $state("");
@@ -126,6 +130,16 @@
 </script>
 
 <div class="flex flex-col h-full p-4 gap-3 overflow-hidden">
+    {#if isBlocking}
+        <Alert.Root variant="warning" class="shrink-0">
+            <InfoIcon />
+            <Alert.Title>Changes apply to your next session</Alert.Title>
+            <Alert.Description>
+                A blocking session is currently active. Any edits you make here will take effect when the next session starts.
+            </Alert.Description>
+        </Alert.Root>
+    {/if}
+
     <!-- Filter bar + actions -->
     <div class="flex items-center gap-2 shrink-0">
         <div class="relative flex-1">

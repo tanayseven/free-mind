@@ -347,7 +347,7 @@
             </TabsContent>
 
             <TabsContent value="websites" class="flex flex-1 flex-col overflow-hidden">
-                <WebsitesTab bind:websites />
+                <WebsitesTab bind:websites {isBlocking} />
             </TabsContent>
 
             <TabsContent value="settings" class="flex flex-1 items-center justify-center">
