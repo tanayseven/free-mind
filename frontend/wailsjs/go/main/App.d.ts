@@ -23,6 +23,10 @@ export function InstallDaemonBinary():Promise<string>;
 
 export function InstallDaemonWithOneClick():Promise<string>;
 
+export function LoadBlockedWebsites():Promise<string>;
+
+export function SaveBlockedWebsites(arg1:string):Promise<boolean>;
+
 export function SendBlockList(arg1:string):Promise<boolean>;
 
 export function StartBlocking():Promise<boolean>;

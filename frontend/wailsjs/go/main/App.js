@@ -46,6 +46,14 @@ export function InstallDaemonWithOneClick() {
   return window['go']['main']['App']['InstallDaemonWithOneClick']();
 }
 
+export function LoadBlockedWebsites() {
+  return window['go']['main']['App']['LoadBlockedWebsites']();
+}
+
+export function SaveBlockedWebsites(arg1) {
+  return window['go']['main']['App']['SaveBlockedWebsites'](arg1);
+}
+
 export function SendBlockList(arg1) {
   return window['go']['main']['App']['SendBlockList'](arg1);
 }
