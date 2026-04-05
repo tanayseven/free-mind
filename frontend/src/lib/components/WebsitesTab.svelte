@@ -12,8 +12,6 @@
         enabled: boolean;
     };
 
-    const CATEGORIES = ["Social", "Video", "News", "Gaming", "Shopping", "Other"];
-
     let {
         websites = $bindable<WebsiteEntry[]>([
             { id: "1", domain: "youtube.com", category: "Video", enabled: true },
@@ -28,6 +26,11 @@
         websites?: WebsiteEntry[];
         isBlocking?: boolean;
     } = $props();
+
+    const BASE_CATEGORIES = ["Social", "Video", "News", "Gaming", "Shopping", "Other"];
+    let categories = $derived(
+        [...new Set([...BASE_CATEGORIES, ...websites.map((w) => w.category)])].sort()
+    );
 
     let filterText = $state("");
     let editingId = $state<string | null>(null);
@@ -129,7 +132,7 @@
     }
 </script>
 
-<div class="flex flex-col h-full p-4 gap-3 overflow-hidden">
+<div class="flex flex-col flex-1 min-h-0 p-4 gap-3">
     {#if isBlocking}
         <Alert.Root variant="warning" class="shrink-0">
             <InfoIcon />
@@ -170,9 +173,9 @@
     </div>
 
     <!-- Table -->
-    <div class="flex-1 overflow-auto rounded-md border border-border">
+    <div class="flex-1 min-h-0 overflow-auto rounded-md border border-border">
         <Table.Root>
-            <Table.Header>
+            <Table.Header class="sticky top-0 z-10 bg-background">
                 <Table.Row class="bg-muted/40 hover:bg-muted/40">
                     <Table.Head class="w-10 px-3">
                         <input
@@ -247,8 +250,8 @@
                                 onchange={(e) => updateCategory(entry.id, e.currentTarget.value)}
                                 class="rounded border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring cursor-pointer"
                             >
-                                {#each CATEGORIES as cat}
-                                    <option value={cat}>{cat}</option>
+                                {#each categories as cat}
+                                    <option value={cat} selected={cat === entry.category}>{cat}</option>
                                 {/each}
                             </select>
                         </Table.Cell>

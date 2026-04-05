@@ -3,17 +3,23 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	"free-mind/ipc"
 )
+
+//go:embed data/default-blocklist.json
+var defaultBlocklistJSON []byte
 
 // App struct
 type App struct {
@@ -434,6 +440,111 @@ func (a *App) InstallAndStartDaemon() string {
 		log.Println(errorMsg)
 		return errorMsg
 	}
+}
+
+type defaultBlocklistCategory struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Icon    string   `json:"icon"`
+	Blocked bool     `json:"blocked"`
+	Sites   []string `json:"sites"`
+}
+
+type defaultBlocklist struct {
+	Version    string                    `json:"version"`
+	Name       string                    `json:"name"`
+	Categories []defaultBlocklistCategory `json:"categories"`
+}
+
+type websiteEntry struct {
+	ID       string `json:"id"`
+	Domain   string `json:"domain"`
+	Category string `json:"category"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// buildDefaultWebsitesJSON parses the embedded default-blocklist.json and
+// returns a flat []websiteEntry JSON string suitable for blocked-websites.json.
+func buildDefaultWebsitesJSON() (string, error) {
+	var bl defaultBlocklist
+	if err := json.Unmarshal(defaultBlocklistJSON, &bl); err != nil {
+		return "", fmt.Errorf("parse default-blocklist.json: %v", err)
+	}
+	var entries []websiteEntry
+	id := 1
+	for _, cat := range bl.Categories {
+		for _, site := range cat.Sites {
+			entries = append(entries, websiteEntry{
+				ID:       fmt.Sprintf("%d", id),
+				Domain:   site,
+				Category: cat.Name,
+				Enabled:  cat.Blocked,
+			})
+			id++
+		}
+	}
+	out, err := json.Marshal(entries)
+	if err != nil {
+		return "", fmt.Errorf("marshal website entries: %v", err)
+	}
+	return string(out), nil
+}
+
+func blockedWebsitesPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get home directory: %v", err)
+	}
+	return filepath.Join(home, ".free-mind", "blocked-websites.json"), nil
+}
+
+func writeBlockedWebsites(path, data string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
+	return os.WriteFile(path, []byte(data), 0644)
+}
+
+// LoadBlockedWebsites reads $HOME/.free-mind/blocked-websites.json.
+// If the file does not exist, it converts data/default-blocklist.json to the
+// flat entry format, writes it, and returns it.
+func (a *App) LoadBlockedWebsites() string {
+	path, err := blockedWebsitesPath()
+	if err != nil {
+		log.Printf("LoadBlockedWebsites: %v", err)
+		return "[]"
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			defaults, buildErr := buildDefaultWebsitesJSON()
+			if buildErr != nil {
+				log.Printf("LoadBlockedWebsites: %v", buildErr)
+				return "[]"
+			}
+			if writeErr := writeBlockedWebsites(path, defaults); writeErr != nil {
+				log.Printf("LoadBlockedWebsites: failed to write defaults: %v", writeErr)
+			}
+			return defaults
+		}
+		log.Printf("LoadBlockedWebsites: read error: %v", err)
+		return "[]"
+	}
+	return string(data)
+}
+
+// SaveBlockedWebsites writes the JSON to $HOME/.free-mind/blocked-websites.json.
+func (a *App) SaveBlockedWebsites(websitesJSON string) bool {
+	path, err := blockedWebsitesPath()
+	if err != nil {
+		log.Printf("SaveBlockedWebsites: %v", err)
+		return false
+	}
+	if err := writeBlockedWebsites(path, websitesJSON); err != nil {
+		log.Printf("SaveBlockedWebsites: %v", err)
+		return false
+	}
+	return true
 }
 
 const hostsStartMarker = "########## START OF FREE-MIND BLOCK LIST ##########"

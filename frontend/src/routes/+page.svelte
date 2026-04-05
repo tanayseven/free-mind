@@ -1,6 +1,6 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking} from "../../wailsjs/go/main/App";
+    import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking, LoadBlockedWebsites, SaveBlockedWebsites} from "../../wailsjs/go/main/App";
     import { Environment } from "../../wailsjs/runtime/runtime";
     import { Switch } from "@/components/ui/switch";
     import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -30,14 +30,14 @@
     let isMac = $state(false);
     let isDark = $state(false);
     let selectedMode = $state("free");
-    let websites = $state<WebsiteEntry[]>([
-        { id: "1", domain: "youtube.com", category: "Video", enabled: true },
-        { id: "2", domain: "www.youtube.com", category: "Video", enabled: true },
-        { id: "3", domain: "facebook.com", category: "Social", enabled: true },
-        { id: "4", domain: "www.facebook.com", category: "Social", enabled: true },
-        { id: "5", domain: "instagram.com", category: "Social", enabled: true },
-        { id: "6", domain: "www.instagram.com", category: "Social", enabled: true },
-    ]);
+    let websites = $state<WebsiteEntry[]>([]);
+    let websitesReady = $state(false);
+
+    $effect(() => {
+        if (!websitesReady) return;
+        const json = JSON.stringify(websites);
+        SaveBlockedWebsites(json).catch((e: unknown) => console.error("Failed to save blocked websites:", e));
+    });
 
     function toggleDark(checked: boolean) {
         isDark = checked;
@@ -130,6 +130,14 @@
             const env = await Environment();
             isMac = env.platform === "darwin";
 
+            try {
+                const json = await LoadBlockedWebsites();
+                websites = JSON.parse(json);
+            } catch (e: unknown) {
+                console.error("Failed to load blocked websites:", e);
+            }
+            websitesReady = true;
+
             console.log("Checking daemon connection on page load...");
             const connected = await checkDaemonConnection();
             console.log("Initial daemon connection check result:", connected);
@@ -187,7 +195,7 @@
     <meta name="description" content="Block distracting websites and stay focused" />
 </svelte:head>
 
-<div class="w-full flex-1 flex flex-col self-stretch">
+<div class="w-full flex-1 min-h-0 flex flex-col self-stretch">
     {#if isLoading}
         <!-- Minimal header during loading -->
         <div class="w-full flex items-center justify-between px-4 py-2.5 border-b border-border/50">
@@ -211,7 +219,7 @@
             </button>
         </div>
     {:else}
-        <Tabs value="home" class="w-full flex flex-col flex-1">
+        <Tabs value="home" class="w-full flex flex-col flex-1 min-h-0">
             <!-- Unified header + tabs bar -->
             <div class="w-full flex items-center gap-4 px-5 py-3 border-b border-border/50">
                 <span class="font-bold text-lg tracking-tight shrink-0">Free Mind</span>
@@ -346,7 +354,7 @@
                 {/if}
             </TabsContent>
 
-            <TabsContent value="websites" class="flex flex-1 flex-col overflow-hidden">
+            <TabsContent value="websites" class="flex flex-1 min-h-0 flex-col overflow-hidden">
                 <WebsitesTab bind:websites {isBlocking} />
             </TabsContent>
 
