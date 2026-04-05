@@ -9,10 +9,12 @@
     import { House, LayoutGrid, List, Settings, Sun, Moon } from "@lucide/svelte";
     import AlertCircleIcon from "@lucide/svelte/icons/alert-circle";
     import { applyTheme, detectInitialTheme } from "$lib/theme";
+    import StatusDot from "$lib/components/modes/StatusDot.svelte";
     import FreeMode from "$lib/components/modes/FreeMode.svelte";
     import TimerMode from "$lib/components/modes/TimerMode.svelte";
     import ScheduleMode from "$lib/components/modes/ScheduleMode.svelte";
     import PomodoroMode from "$lib/components/modes/PomodoroMode.svelte";
+    import WebsitesTab, { type WebsiteEntry } from "$lib/components/WebsitesTab.svelte";
 
     const modeLabels: Record<string, string> = {
         free: "⛓️‍💥 Free",
@@ -28,6 +30,14 @@
     let isMac = $state(false);
     let isDark = $state(false);
     let selectedMode = $state("free");
+    let websites = $state<WebsiteEntry[]>([
+        { id: "1", domain: "youtube.com", category: "Video", enabled: true },
+        { id: "2", domain: "www.youtube.com", category: "Video", enabled: true },
+        { id: "3", domain: "facebook.com", category: "Social", enabled: true },
+        { id: "4", domain: "www.facebook.com", category: "Social", enabled: true },
+        { id: "5", domain: "instagram.com", category: "Social", enabled: true },
+        { id: "6", domain: "www.instagram.com", category: "Social", enabled: true },
+    ]);
 
     function toggleDark(checked: boolean) {
         isDark = checked;
@@ -140,20 +150,12 @@
         console.log("Initialization complete. isLoading:", isLoading, "showInstallButton:", showInstallButton);
     });
 
-    const websitesToBeBlocked = [
-        "youtube.com",
-        "www.youtube.com",
-        "facebook.com",
-        "www.facebook.com",
-        "instagram.com",
-        "www.instagram.com",
-    ]
-
     async function sendStartCommand() {
         try {
             console.log("Sending start command...");
             await ConnectToDaemon();
-            const blockResult = await SendBlockList(websitesToBeBlocked.join(","));
+            const enabledDomains = websites.filter((w) => w.enabled).map((w) => w.domain);
+            const blockResult = await SendBlockList(enabledDomains.join(","));
             console.log("SendBlockList result:", blockResult);
             if (blockResult) {
                 const startResult = await StartBlocking();
@@ -235,16 +237,19 @@
                     </TabsList>
                 </div>
 
-                <!-- Dark mode toggle -->
-                <div class="flex items-center gap-2 shrink-0">
-                    <Sun class="size-4 text-muted-foreground transition-opacity {isDark ? 'opacity-40' : 'opacity-100'}" />
-                    <Switch
-                        checked={isDark}
-                        onCheckedChange={toggleDark}
-                        size="sm"
-                        class="data-[state=checked]:bg-muted-foreground/40 data-[state=unchecked]:bg-muted-foreground/40"
-                    />
-                    <Moon class="size-4 text-muted-foreground transition-opacity {isDark ? 'opacity-100' : 'opacity-40'}" />
+                <!-- Status + Dark mode toggle -->
+                <div class="flex items-center gap-4 shrink-0">
+                    <StatusDot {isBlocking} />
+                    <div class="flex items-center gap-2">
+                        <Sun class="size-4 text-muted-foreground transition-opacity {isDark ? 'opacity-40' : 'opacity-100'}" />
+                        <Switch
+                            checked={isDark}
+                            onCheckedChange={toggleDark}
+                            size="sm"
+                            class="data-[state=checked]:bg-muted-foreground/40 data-[state=unchecked]:bg-muted-foreground/40"
+                        />
+                        <Moon class="size-4 text-muted-foreground transition-opacity {isDark ? 'opacity-100' : 'opacity-40'}" />
+                    </div>
                 </div>
             </div>
 
@@ -271,7 +276,12 @@
                         disabled={isLoading || showInstallButton}
                     />
                 {:else if selectedMode === "schedule"}
-                    <ScheduleMode {isBlocking} />
+                    <ScheduleMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
                 {:else if selectedMode === "pomodoro"}
                     <PomodoroMode
                         {isBlocking}
@@ -320,7 +330,12 @@
                         disabled={isLoading || showInstallButton}
                     />
                 {:else if selectedMode === "schedule"}
-                    <ScheduleMode {isBlocking} />
+                    <ScheduleMode
+                        {isBlocking}
+                        onStart={sendStartCommand}
+                        onStop={sendStopCommand}
+                        disabled={isLoading || showInstallButton}
+                    />
                 {:else if selectedMode === "pomodoro"}
                     <PomodoroMode
                         {isBlocking}
@@ -331,8 +346,8 @@
                 {/if}
             </TabsContent>
 
-            <TabsContent value="websites" class="flex flex-1 items-center justify-center">
-                <p class="text-muted-foreground text-sm">Websites — coming soon.</p>
+            <TabsContent value="websites" class="flex flex-1 flex-col overflow-hidden">
+                <WebsitesTab bind:websites />
             </TabsContent>
 
             <TabsContent value="settings" class="flex flex-1 items-center justify-center">

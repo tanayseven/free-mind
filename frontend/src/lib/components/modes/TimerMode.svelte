@@ -1,6 +1,6 @@
 <script lang="ts">
     import TimerIcon from "@lucide/svelte/icons/timer";
-    import StatusDot from "./StatusDot.svelte";
+    import { Switch } from "@/components/ui/switch";
 
     let {
         isBlocking,
@@ -25,8 +25,6 @@
 </script>
 
 <div class="flex flex-col items-center gap-5 w-full max-w-sm">
-    <StatusDot {isBlocking} />
-
     <div class="flex flex-col items-center gap-4 w-full">
         <div class="flex items-center gap-2 text-muted-foreground">
             <TimerIcon class="size-4" />
@@ -52,14 +50,11 @@
             Timer mode coming soon — set a duration and block automatically.
         </p>
 
-        <button
-            class="h-8 rounded-md px-5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            onclick={isBlocking ? onStop : onStart}
+        <Switch
+            checked={isBlocking}
+            onCheckedChange={(checked) => (checked ? onStart() : onStop())}
             {disabled}
-        >
-            {isBlocking
-                ? "Stop blocking"
-                : `Block for ${presets.find((p) => p.minutes === selectedMinutes)?.label ?? selectedMinutes + " min"}`}
-        </button>
+            size="sm"
+        />
     </div>
 </div>

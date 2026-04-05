@@ -1,6 +1,5 @@
 <script lang="ts">
     import { Switch } from "@/components/ui/switch";
-    import StatusDot from "./StatusDot.svelte";
 
     let {
         isBlocking,
@@ -16,8 +15,6 @@
 </script>
 
 <div class="flex flex-col items-center gap-5 w-full max-w-sm">
-    <StatusDot {isBlocking} />
-
     <Switch
         checked={isBlocking}
         onCheckedChange={(checked) => (checked ? onStart() : onStop())}
