@@ -1,11 +1,17 @@
 <script lang="ts">
     import CalendarIcon from "@lucide/svelte/icons/calendar";
-    import StatusDot from "./StatusDot.svelte";
+    import { Switch } from "@/components/ui/switch";
 
     let {
         isBlocking,
+        onStart,
+        onStop,
+        disabled = false,
     }: {
         isBlocking: boolean;
+        onStart: () => void;
+        onStop: () => void;
+        disabled?: boolean;
     } = $props();
 
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -23,8 +29,6 @@
 </script>
 
 <div class="flex flex-col items-center gap-5 w-full max-w-sm">
-    <StatusDot {isBlocking} />
-
     <div class="flex flex-col items-center gap-4 w-full">
         <div class="flex items-center gap-2 text-muted-foreground">
             <CalendarIcon class="size-4" />
@@ -72,5 +76,12 @@
         <p class="text-xs text-muted-foreground">
             Schedule mode coming soon — block automatically on selected days and times.
         </p>
+
+        <Switch
+            checked={isBlocking}
+            onCheckedChange={(checked) => (checked ? onStart() : onStop())}
+            {disabled}
+            size="sm"
+        />
     </div>
 </div>

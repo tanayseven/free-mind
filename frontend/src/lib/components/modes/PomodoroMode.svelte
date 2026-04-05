@@ -1,6 +1,6 @@
 <script lang="ts">
     import AlarmClockIcon from "@lucide/svelte/icons/alarm-clock";
-    import StatusDot from "./StatusDot.svelte";
+    import { Switch } from "@/components/ui/switch";
 
     let {
         isBlocking,
@@ -20,8 +20,6 @@
 </script>
 
 <div class="flex flex-col items-center gap-5 w-full max-w-sm">
-    <StatusDot {isBlocking} />
-
     <div class="flex flex-col items-center gap-4 w-full">
         <div class="flex items-center gap-2 text-muted-foreground">
             <AlarmClockIcon class="size-4" />
@@ -85,12 +83,11 @@
             Pomodoro mode coming soon — block during work intervals, unblock during breaks.
         </p>
 
-        <button
-            class="h-8 rounded-md px-5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            onclick={isBlocking ? onStop : onStart}
+        <Switch
+            checked={isBlocking}
+            onCheckedChange={(checked) => (checked ? onStart() : onStop())}
             {disabled}
-        >
-            {isBlocking ? "Stop blocking" : `Start ${cycles} × ${workMinutes}min session`}
-        </button>
+            size="sm"
+        />
     </div>
 </div>
