@@ -1,6 +1,6 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking, LoadBlockedWebsites, SaveBlockedWebsites} from "../../wailsjs/go/main/App";
+    import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking, LoadBlockedWebsites, SaveBlockedWebsites, LoadSettings, SaveSettings} from "../../wailsjs/go/main/App";
     import { Environment } from "../../wailsjs/runtime/runtime";
     import { Switch } from "@/components/ui/switch";
     import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -32,6 +32,7 @@
     let selectedMode = $state("free");
     let websites = $state<WebsiteEntry[]>([]);
     let websitesReady = $state(false);
+    let unblockWaiting = $state(30);
 
     $effect(() => {
         if (!websitesReady) return;
@@ -137,6 +138,13 @@
                 console.error("Failed to load blocked websites:", e);
             }
             websitesReady = true;
+
+            try {
+                const settings = await LoadSettings();
+                unblockWaiting = settings.unblockWaiting;
+            } catch (e: unknown) {
+                console.error("Failed to load settings:", e);
+            }
 
             console.log("Checking daemon connection on page load...");
             const connected = await checkDaemonConnection();
@@ -275,6 +283,7 @@
                         onStart={sendStartCommand}
                         onStop={sendStopCommand}
                         disabled={isLoading || showInstallButton}
+                        {unblockWaiting}
                     />
                 {:else if selectedMode === "timer"}
                     <TimerMode
@@ -329,6 +338,7 @@
                         onStart={sendStartCommand}
                         onStop={sendStopCommand}
                         disabled={isLoading || showInstallButton}
+                        {unblockWaiting}
                     />
                 {:else if selectedMode === "timer"}
                     <TimerMode
@@ -358,8 +368,30 @@
                 <WebsitesTab bind:websites {isBlocking} />
             </TabsContent>
 
-            <TabsContent value="settings" class="flex flex-1 items-center justify-center">
-                <p class="text-muted-foreground text-sm">{isMac ? "Preferences" : "Settings"} — coming soon.</p>
+            <TabsContent value="settings" class="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+                <div class="flex flex-col gap-1.5">
+                    <p class="text-sm font-medium">Unblock waiting time</p>
+                    <p class="text-muted-foreground text-xs">Seconds to wait before blocking is disabled in Free Mode.</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input
+                            type="number"
+                            min="1"
+                            max="300"
+                            value={unblockWaiting}
+                            oninput={(e) => {
+                                const v = parseInt((e.target as HTMLInputElement).value, 10);
+                                if (!isNaN(v) && v >= 1 && v <= 300) {
+                                    unblockWaiting = v;
+                                    SaveSettings({ unblockWaiting: v }).catch((err: unknown) =>
+                                        console.error("Failed to save settings:", err)
+                                    );
+                                }
+                            }}
+                            class="border-input bg-background text-foreground focus-visible:ring-ring w-24 rounded-md border px-3 py-1.5 text-sm focus-visible:ring-1 focus-visible:outline-none"
+                        />
+                        <span class="text-muted-foreground text-sm">seconds</span>
+                    </div>
+                </div>
             </TabsContent>
         </Tabs>
     {/if}

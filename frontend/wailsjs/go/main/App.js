@@ -50,8 +50,16 @@ export function LoadBlockedWebsites() {
   return window['go']['main']['App']['LoadBlockedWebsites']();
 }
 
+export function LoadSettings() {
+  return window['go']['main']['App']['LoadSettings']();
+}
+
 export function SaveBlockedWebsites(arg1) {
   return window['go']['main']['App']['SaveBlockedWebsites'](arg1);
+}
+
+export function SaveSettings(arg1) {
+  return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
 export function SendBlockList(arg1) {

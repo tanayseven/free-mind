@@ -8,17 +8,19 @@
         onStart,
         onStop,
         disabled = false,
+        unblockWaiting = 30,
     }: {
         isBlocking: boolean;
         onStart: () => void;
         onStop: () => void;
         disabled?: boolean;
+        unblockWaiting?: number;
     } = $props();
 
     const TOTAL_STEPS = 1000;
     const INTERVAL_MS = 50;
-    const TOTAL_DURATION_MS = 30000;
-    const DECREMENT = TOTAL_STEPS / (TOTAL_DURATION_MS / INTERVAL_MS);
+    const totalDurationMs = $derived(unblockWaiting * 1000);
+    const DECREMENT = $derived(TOTAL_STEPS / (totalDurationMs / INTERVAL_MS));
 
     let showCountdown = $state(false);
     let progressValue = $state(TOTAL_STEPS);
@@ -54,8 +56,9 @@
 
         window.addEventListener("blur", handleWindowBlur);
 
+        const decrement = DECREMENT;
         intervalId = setInterval(() => {
-            progressValue -= DECREMENT;
+            progressValue -= decrement;
             if (progressValue <= 0) {
                 progressValue = 0;
                 clearInterval(intervalId!);

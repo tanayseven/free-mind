@@ -498,6 +498,72 @@ func blockedWebsitesPath() (string, error) {
 	return filepath.Join(home, ".free-mind", "blocked-websites.json"), nil
 }
 
+// AppSettings holds user-configurable application settings.
+type AppSettings struct {
+	UnblockWaiting int `json:"unblockWaiting"` // seconds to wait before unblocking
+}
+
+func settingsPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not get home directory: %v", err)
+	}
+	return filepath.Join(home, ".free-mind", "settings.json"), nil
+}
+
+// LoadSettings reads $HOME/.free-mind/settings.json.
+// If the file does not exist, it writes and returns the defaults.
+func (a *App) LoadSettings() AppSettings {
+	defaults := AppSettings{UnblockWaiting: 30}
+	path, err := settingsPath()
+	if err != nil {
+		log.Printf("LoadSettings: %v", err)
+		return defaults
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if saveErr := writeSettings(path, defaults); saveErr != nil {
+				log.Printf("LoadSettings: failed to write defaults: %v", saveErr)
+			}
+			return defaults
+		}
+		log.Printf("LoadSettings: read error: %v", err)
+		return defaults
+	}
+	var s AppSettings
+	if err := json.Unmarshal(data, &s); err != nil {
+		log.Printf("LoadSettings: parse error: %v", err)
+		return defaults
+	}
+	return s
+}
+
+// SaveSettings writes the settings to $HOME/.free-mind/settings.json.
+func (a *App) SaveSettings(s AppSettings) bool {
+	path, err := settingsPath()
+	if err != nil {
+		log.Printf("SaveSettings: %v", err)
+		return false
+	}
+	if err := writeSettings(path, s); err != nil {
+		log.Printf("SaveSettings: %v", err)
+		return false
+	}
+	return true
+}
+
+func writeSettings(path string, s AppSettings) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal settings: %v", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
 func writeBlockedWebsites(path, data string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
