@@ -3,8 +3,8 @@ module free-mind
 go 1.23
 
 require (
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/wailsapp/wails/v2 v2.11.0
-	gopkg.in/zeromq/goczmq.v4 v4.1.0
 )
 
 require (

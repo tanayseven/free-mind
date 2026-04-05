@@ -6,16 +6,20 @@ export function CheckAndInstallDaemon() {
   return window['go']['main']['App']['CheckAndInstallDaemon']();
 }
 
+export function CheckBlocking() {
+  return window['go']['main']['App']['CheckBlocking']();
+}
+
 export function CheckDaemonInstalled() {
   return window['go']['main']['App']['CheckDaemonInstalled']();
 }
 
-export function ExtractDaemonBinary() {
-  return window['go']['main']['App']['ExtractDaemonBinary']();
+export function ConnectToDaemon() {
+  return window['go']['main']['App']['ConnectToDaemon']();
 }
 
-export function FetchDaemonPort() {
-  return window['go']['main']['App']['FetchDaemonPort']();
+export function ExtractDaemonBinary() {
+  return window['go']['main']['App']['ExtractDaemonBinary']();
 }
 
 export function GetDaemonBinaryDestination() {
@@ -40,6 +44,22 @@ export function InstallDaemonBinary() {
 
 export function InstallDaemonWithOneClick() {
   return window['go']['main']['App']['InstallDaemonWithOneClick']();
+}
+
+export function LoadBlockedWebsites() {
+  return window['go']['main']['App']['LoadBlockedWebsites']();
+}
+
+export function LoadSettings() {
+  return window['go']['main']['App']['LoadSettings']();
+}
+
+export function SaveBlockedWebsites(arg1) {
+  return window['go']['main']['App']['SaveBlockedWebsites'](arg1);
+}
+
+export function SaveSettings(arg1) {
+  return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
 export function SendBlockList(arg1) {
