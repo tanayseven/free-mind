@@ -147,7 +147,9 @@ func (a *App) GetDaemonBinaryDestination() string {
 	switch runtime.GOOS {
 	case "windows":
 		return `C:\Windows\System32\free-mind-daemon.exe`
-	case "darwin", "linux":
+	case "darwin":
+		return "/usr/local/bin/free-mind-daemon"
+	case "linux":
 		return "/usr/bin/free-mind-daemon"
 	default:
 		return ""
@@ -369,8 +371,17 @@ func (a *App) InstallAndStartDaemon() string {
 	case "windows":
 		log.Println("Using Windows daemon startup method")
 		cmd = exec.Command("powershell", "-Command", "Start-Process", destPath, "-WindowStyle", "Hidden")
-	case "darwin", "linux":
-		log.Println("Using Linux/macOS daemon startup method")
+	case "darwin":
+		log.Println("Using macOS daemon startup method")
+		// On macOS, use osascript with administrator privileges.
+		// Do NOT use nohup — it fails in the osascript context (no controlling terminal).
+		// The & backgrounds the daemon so osascript returns immediately.
+		shellCmd := fmt.Sprintf("%s > /tmp/free-mind-daemon.log 2>&1 &", destPath)
+		appleScript := fmt.Sprintf(`do shell script "%s" with administrator privileges`, shellCmd)
+		cmd = exec.Command("osascript", "-e", appleScript)
+		log.Printf("DEBUG: Starting daemon with osascript: %s", shellCmd)
+	case "linux":
+		log.Println("Using Linux daemon startup method")
 		// Start the daemon with pkexec for elevated privileges
 		// Use nohup to ensure the daemon keeps running even if pkexec exits
 		cmd = exec.Command("pkexec", "sh", "-c", fmt.Sprintf("nohup %s > /tmp/free-mind-daemon.log 2>&1 &", destPath))
@@ -383,8 +394,7 @@ func (a *App) InstallAndStartDaemon() string {
 
 	// Start the daemon in the background
 	log.Printf("Starting daemon command: %v", cmd.Args)
-	err = cmd.Start()
-	if err != nil {
+	if err = cmd.Start(); err != nil {
 		errorMsg := fmt.Sprintf("Failed to start daemon: %v", err)
 		log.Println(errorMsg)
 		return errorMsg

@@ -1,7 +1,6 @@
 
 .ONESHELL:
 run-app: # Run the app in dev mode
-	. ~/.nvm/nvm.sh && nvm install
 	wails dev
 
 build-wails-app: # Builds the wails app for the current architecture
@@ -15,8 +14,11 @@ build-daemon-all: build-daemon-linux build-daemon-macos build-daemon-windows # B
 build-daemon-linux: # Builds the daemon for Linux
 	GOOS=linux GOARCH=amd64 go build -o build/bin/free-mind-daemon-linux root-daemon/main.go
 
-build-daemon-macos: # Builds the daemon for macOS
-	GOOS=darwin GOARCH=amd64 go build -o build/bin/free-mind-daemon-darwin root-daemon/main.go
+build-daemon-macos: # Builds the daemon for macOS (universal binary: amd64 + arm64)
+	GOOS=darwin GOARCH=amd64 go build -o build/bin/free-mind-daemon-darwin-amd64 root-daemon/main.go
+	GOOS=darwin GOARCH=arm64 go build -o build/bin/free-mind-daemon-darwin-arm64 root-daemon/main.go
+	lipo -create -output build/bin/free-mind-daemon-darwin build/bin/free-mind-daemon-darwin-amd64 build/bin/free-mind-daemon-darwin-arm64
+	rm build/bin/free-mind-daemon-darwin-amd64 build/bin/free-mind-daemon-darwin-arm64
 
 build-daemon-windows: # Builds the daemon for Windows
 	GOOS=windows GOARCH=amd64 go build -o build/bin/free-mind-daemon-windows.exe root-daemon/main.go
