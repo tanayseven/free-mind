@@ -25,11 +25,15 @@
     let showCountdown = $state(false);
     let progressValue = $state(TOTAL_STEPS);
     let intervalId: ReturnType<typeof setInterval> | null = null;
+    // Set when the countdown completes; cleared once isBlocking confirms false
+    let stopInitiated = $state(false);
 
-    // Local state for the switch visual — lets us hold it at "on" during the countdown
-    let switchIsOn = $state(false);
+    // Derived: On during countdown, Off once stop is initiated, otherwise mirrors isBlocking
+    const switchIsOn = $derived(showCountdown ? true : stopInitiated ? false : isBlocking);
+
+    // Once isBlocking actually reflects the stopped state, clear the flag
     $effect(() => {
-        switchIsOn = isBlocking;
+        if (!isBlocking) stopInitiated = false;
     });
 
     function cancelCountdown() {
@@ -40,8 +44,7 @@
         window.removeEventListener("blur", handleWindowBlur);
         showCountdown = false;
         progressValue = TOTAL_STEPS;
-        // Restore the switch to reflect the actual blocking state
-        switchIsOn = isBlocking;
+        stopInitiated = false;
     }
 
     function handleWindowBlur() {
@@ -49,8 +52,6 @@
     }
 
     function handleSwitchOff() {
-        // Immediately snap the switch back to "on" — don't let bits-ui toggle it yet
-        switchIsOn = true;
         showCountdown = true;
         progressValue = TOTAL_STEPS;
 
@@ -65,6 +66,7 @@
                 intervalId = null;
                 window.removeEventListener("blur", handleWindowBlur);
                 showCountdown = false;
+                stopInitiated = true;
                 onStop();
             }
         }, INTERVAL_MS);
@@ -95,7 +97,7 @@
 
 <div class="flex flex-col items-center gap-5 w-full max-w-sm">
     <Switch
-        bind:checked={switchIsOn}
+        checked={switchIsOn}
         onCheckedChange={(checked) => (checked ? onStart() : handleSwitchOff())}
         {disabled}
         size="sm"
