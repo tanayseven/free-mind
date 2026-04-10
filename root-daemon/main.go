@@ -207,17 +207,14 @@ const ender = "########## END OF FREE-MIND BLOCK LIST ##########"
 func RestartNetwork() {
 	switch runtime.GOOS {
 	case "windows":
-		exec.Command("ipconfig", "/flushdns")
-		break
+		exec.Command("ipconfig", "/flushdns").Run()
 	case "darwin":
-		exec.Command("dscacheutil", "-flushcache")
-		break
+		exec.Command("dscacheutil", "-flushcache").Run()
+		exec.Command("killall", "-HUP", "mDNSResponder").Run()
 	case "linux":
-		exec.Command("/etc/init.d/networking", "restart")
-		exec.Command("/etc/init.d/nscd", "restart")
-		exec.Command("/etc/rc.d/nscd", "restart")
-		exec.Command("/etc/rc.d/init.d/nscd", "restart")
-		break
+		exec.Command("/etc/init.d/nscd", "restart").Run()
+		exec.Command("/etc/rc.d/nscd", "restart").Run()
+		exec.Command("/etc/rc.d/init.d/nscd", "restart").Run()
 	}
 }
 
