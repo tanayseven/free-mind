@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onMount} from "svelte";
+    import {onMount, onDestroy} from "svelte";
     import {ConnectToDaemon, SendBlockList, StartBlocking, StopBlocking, InstallAndStartDaemon, CheckDaemonInstalled, CheckBlocking, LoadBlockedWebsites, SaveBlockedWebsites, LoadSettings, SaveSettings} from "../../wailsjs/go/main/App";
     import { Environment } from "../../wailsjs/runtime/runtime";
     import { Switch } from "@/components/ui/switch";
@@ -196,6 +196,23 @@
             console.error("Full error details:", JSON.stringify(error));
         }
     }
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+    $effect(() => {
+        if (!isLoading && !showInstallButton) {
+            pollInterval = setInterval(async () => {
+                isBlocking = await CheckBlocking();
+            }, 100);
+        } else if (pollInterval !== null) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    });
+
+    onDestroy(() => {
+        if (pollInterval !== null) clearInterval(pollInterval);
+    });
 </script>
 
 <svelte:head>
