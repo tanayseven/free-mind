@@ -8,8 +8,23 @@
 	} from '@/components/ui/tooltip';
 </script>
 
-<footer class="w-full bg-secondary py-1.5 px-4 text-center text-secondary-foreground/60 text-xs">
-	<p class="max-w-4xl mx-auto">
-		Made with <TooltipProvider><Tooltip><TooltipTrigger>❤️</TooltipTrigger><TooltipContent>love</TooltipContent></Tooltip></TooltipProvider> and <TooltipProvider><Tooltip><TooltipTrigger>😓</TooltipTrigger><TooltipContent>sweat</TooltipContent></Tooltip></TooltipProvider> by <button onclick={() => BrowserOpenURL('https://tanay.tech')} class="text-primary hover:underline cursor-pointer">Tanay PrabhuDesai</button> head to <button onclick={() => BrowserOpenURL('https://freemind.tanay.tech')} class="text-primary hover:underline cursor-pointer">Free Mind</button> to learn about this application.
+<footer class="w-full bg-secondary px-4 py-1.5 text-center text-xs text-secondary-foreground/60">
+	<p class="mx-auto max-w-4xl">
+		Made with <TooltipProvider
+			><Tooltip><TooltipTrigger>❤️</TooltipTrigger><TooltipContent>love</TooltipContent></Tooltip
+			></TooltipProvider
+		> and <TooltipProvider
+			><Tooltip><TooltipTrigger>😓</TooltipTrigger><TooltipContent>sweat</TooltipContent></Tooltip
+			></TooltipProvider
+		> by
+		<button
+			onclick={() => BrowserOpenURL('https://tanay.tech')}
+			class="cursor-pointer text-primary hover:underline">Tanay PrabhuDesai</button
+		>
+		head to
+		<button
+			onclick={() => BrowserOpenURL('https://freemind.tanay.tech')}
+			class="cursor-pointer text-primary hover:underline">Free Mind</button
+		> to learn about this application.
 	</p>
 </footer>
