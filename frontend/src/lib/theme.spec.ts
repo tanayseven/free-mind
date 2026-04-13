@@ -12,12 +12,16 @@ function makeClassList(): ClassList & { classes: Set<string> } {
 	};
 }
 
-function makeStorage(initial: Record<string, string> = {}): Storage & { data: Record<string, string> } {
+function makeStorage(
+	initial: Record<string, string> = {}
+): Storage & { data: Record<string, string> } {
 	const data = { ...initial };
 	return {
 		data,
 		getItem: (key) => data[key] ?? null,
-		setItem: (key, value) => { data[key] = value; }
+		setItem: (key, value) => {
+			data[key] = value;
+		}
 	};
 }
 
