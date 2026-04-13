@@ -54,7 +54,7 @@ jobs:
         working-directory: frontend
 
       - name: Lint
-        run: npm run lint
+        run: npx prettier --check .
         working-directory: frontend
 
       - name: Build
