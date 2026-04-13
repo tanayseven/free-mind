@@ -24,6 +24,11 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Create stub embedded assets
+        run: |
+          mkdir -p frontend/dist build/bin
+          touch frontend/dist/index.html build/bin/free-mind-daemon-linux
+
       - name: Build
         run: go build ./...
 
