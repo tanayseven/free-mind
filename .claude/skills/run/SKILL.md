@@ -1,146 +1,68 @@
 ---
 name: run
-description: "Use this skill to build or run the free-mind project. Covers: running the app in dev mode, building the Wails desktop app, and building the root daemon for one or all platforms."
-compatibility: "Linux, macOS, Windows with Go 1.23+, Wails v2, Node.js, and nvm installed"
+description: "Use this skill to build or run the free-mind project. Covers: running the Tauri app in dev mode and building the desktop bundle."
+compatibility: "Linux, macOS, Windows with mise (Rust, Node, Tauri CLI v2)"
 ---
 
 # Free Mind — Build & Run
+
+Free Mind is a Tauri v2 desktop app: a SvelteKit frontend inside a native
+webview, with a Rust backend in `src-tauri/`.
+
+## First-time setup
+
+All tooling is managed by [mise](https://mise.jdx.dev) from `.mise.toml`
+(Rust, Node, and the Tauri CLI):
+
+```bash
+mise install                    # install Rust, Node, Tauri CLI
+npm ci --prefix frontend        # install frontend dependencies
+```
+
+Once mise is activated in your shell, `tauri`, `cargo`, and `npm` are on PATH.
+If mise is not activated, prefix commands with `mise exec --`.
 
 ## Available targets
 
 | Command | What it does |
 |---------|-------------|
-| `make run-app` | Run the app in dev mode (hot reload via Wails + Vite) |
-| `make build-wails-app` | Build the desktop app for the current OS/arch |
-| `make build-daemon` | Build the root daemon for the current OS/arch |
-| `make build-daemon-all` | Build the daemon for Linux, macOS, and Windows (amd64) |
-| `make build-daemon-linux` | Build daemon → `build/bin/free-mind-daemon-linux` |
-| `make build-daemon-macos` | Build daemon → `build/bin/free-mind-daemon-darwin` |
-| `make build-daemon-windows` | Build daemon → `build/bin/free-mind-daemon-windows.exe` |
-| `make test` | Run all tests (`./...`) |
-| `make test-ipc` | Run IPC layer tests with verbose output |
-| `make test-daemon` | Run root daemon logic tests with verbose output |
-| `make test-app` | Run app-level IPC client tests with verbose output |
-| `make help` | List all targets with descriptions |
-
----
+| `make dev` | Run the app in dev mode (Tauri window + Vite hot reload) |
+| `make build` | Build the desktop bundle for the current OS/arch |
+| `make build-frontend` | Build only the Svelte static assets (`frontend/build`) |
+| `make icons SRC=path.png` | Regenerate app icons from a 1024x1024 PNG |
+| `make lint` | Lint + format-check the frontend |
+| `make check` | Type-check the frontend (`svelte-check`) |
+| `make test` | Run frontend tests (Vitest) |
+| `make help` | List all targets |
 
 ## Running in development
 
 ```bash
-# From the repo root
-make run-app
+make dev        # equivalent to: tauri dev
 ```
 
-This calls `nvm install` then `wails dev`, which:
-1. Starts the Vite dev server for the Svelte frontend (hot reload)
-2. Launches the Go Wails app pointing at the dev server
-3. Watches Go files and rebuilds on change
+This:
+1. Runs `beforeDevCommand` (`npm --prefix frontend run dev`) — Vite dev server on `:5173`
+2. Compiles the Rust backend in `src-tauri/`
+3. Launches the native window pointing at the dev server (hot reload)
 
-> The daemon is **not** started automatically in dev mode. If you need to test
-> blocking, build and install the daemon separately (see below).
-
----
+The first run compiles all Tauri crates and takes a few minutes; subsequent runs
+are incremental.
 
 ## Building the desktop app
 
 ```bash
-make build-wails-app
+make build      # equivalent to: tauri build
 ```
 
-Produces a native executable for the current platform in `build/bin/`.
-The daemon binaries (already in `build/bin/`) are embedded at compile time via
-`//go:embed build/bin/*` in `main.go` — make sure they exist before building.
+Runs `beforeBuildCommand` (static frontend build → `frontend/build`), compiles
+the Rust backend in release mode, and produces platform bundles under
+`src-tauri/target/release/bundle/`.
 
-**Recommended order:**
+## Notes
 
-```bash
-make build-daemon-all   # build daemons for all platforms first
-make build-wails-app    # then embed them into the main app
-```
-
----
-
-## Building the root daemon
-
-The daemon runs as root and modifies `/etc/hosts`. It must be built separately
-and embedded in (or installed alongside) the main app.
-
-### Current platform only
-
-```bash
-make build-daemon
-# Output: build/bin/free-mind-daemon
-```
-
-### All platforms (cross-compile)
-
-```bash
-make build-daemon-all
-# Output:
-#   build/bin/free-mind-daemon-linux       (GOOS=linux  GOARCH=amd64)
-#   build/bin/free-mind-daemon-darwin      (GOOS=darwin GOARCH=amd64)
-#   build/bin/free-mind-daemon-windows.exe (GOOS=windows GOARCH=amd64)
-```
-
-### Single platform
-
-```bash
-make build-daemon-linux    # Linux amd64
-make build-daemon-macos    # macOS amd64
-make build-daemon-windows  # Windows amd64
-```
-
----
-
-## First-time setup
-
-```bash
-# 1. Install Go dependencies
-go mod tidy
-
-# 2. Install frontend dependencies
-cd frontend && npm install && cd ..
-
-# 3. Install the Wails CLI (if not already installed)
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-# 4. Verify everything is in order
-wails doctor
-```
-
----
-
-## Running tests
-
-### All packages
-
-```bash
-make test
-```
-
-### Individual packages
-
-```bash
-make test-ipc      # IPC layer (Unix socket send/receive, server lifecycle)
-make test-daemon   # Root daemon logic (hosts file manipulation, ProcessMessage routing)
-make test-app      # App-level IPC client methods (ConnectToDaemon, SendBlockList, Start/StopBlocking)
-```
-
-### Notes
-
-- Tests are Linux/macOS only (`//go:build linux || darwin`); Windows named-pipe tests are not yet written.
-- The root-daemon tests mock `/etc/hosts` and `/etc/hosts-list-to-be-blocked` — they do **not** touch system files and require no elevated privileges.
-- App tests redirect the Unix socket path via `ipc.OverrideSocketPath` so they never interfere with a running daemon at `/tmp/tech.tanay.free-mind.sock`.
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| `wails: command not found` | Run `go install github.com/wailsapp/wails/v2/cmd/wails@latest` and ensure `$(go env GOPATH)/bin` is on `$PATH` |
-| `nvm: command not found` | Source nvm in your shell: `source ~/.nvm/nvm.sh` |
-| Embedded daemon binary missing at build time | Run `make build-daemon-all` before `make build-wails-app` |
-| App starts but daemon won't connect | Check socket exists at `/tmp/tech.tanay.free-mind.sock`; run the daemon manually with `sudo /usr/bin/free-mind-daemon` |
-| Cross-compile fails for Windows | Ensure CGO is disabled: `CGO_ENABLED=0 make build-daemon-windows` |
+- The Rust commands in `src-tauri/src/lib.rs` are **stubs** — website blocking /
+  daemon logic is not implemented yet.
+- Frontend ↔ Rust bindings live in `frontend/src/lib/api.ts` (Tauri `invoke`).
+- macOS uses the system WKWebView (no extra deps). On Linux you need
+  `webkit2gtk` and related packages (see `.github/workflows/ci.yml`).

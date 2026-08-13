@@ -11,10 +11,12 @@ export default defineConfig({
 			$lib: path.resolve('src/lib')
 		}
 	},
+	// Tauri expects a fixed port and does not want Vite clearing the screen so
+	// Rust compiler output stays visible. See https://v2.tauri.app/start/frontend/sveltekit/
+	clearScreen: false,
 	server: {
-		fs: {
-			allow: ['..', '../wailsjs']
-		}
+		port: 5173,
+		strictPort: true
 	},
 	test: {
 		expect: { requireAssertions: true },

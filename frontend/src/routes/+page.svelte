@@ -11,9 +11,9 @@
 		LoadBlockedWebsites,
 		SaveBlockedWebsites,
 		LoadSettings,
-		SaveSettings
-	} from '../../wailsjs/go/main/App';
-	import { Environment } from '../../wailsjs/runtime/runtime';
+		SaveSettings,
+		Environment
+	} from '$lib/api';
 	import { Switch } from '@/components/ui/switch';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';

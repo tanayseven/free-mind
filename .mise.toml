@@ -1,0 +1,4 @@
+[tools]
+node = "25.6.1"
+rust = "stable"
+"npm:@tauri-apps/cli" = "latest"

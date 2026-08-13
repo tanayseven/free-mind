@@ -7,47 +7,12 @@ on:
     branches: [main]
 
 jobs:
-  go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Read tool versions
-        id: versions
-        run: |
-          echo "go=$(grep '^golang ' .tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ steps.versions.outputs.go }}
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Create stub embedded assets
-        run: |
-          mkdir -p frontend/dist build/bin
-          touch frontend/dist/index.html build/bin/free-mind-daemon-linux
-
-      - name: Build
-        run: go build ./...
-
-      - name: Test
-        run: go test ./...
-
   frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read tool versions
-        id: versions
-        run: |
-          echo "node=$(grep '^nodejs ' .tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.versions.outputs.node }}
+      - uses: jdx/mise-action@v2
 
       - name: Install dependencies
         run: npm ci
@@ -58,7 +23,7 @@ jobs:
         working-directory: frontend
 
       - name: Lint
-        run: npx prettier --check .
+        run: npm run lint
         working-directory: frontend
 
       - name: Build
@@ -68,3 +33,40 @@ jobs:
       - name: Test
         run: npm run test
         working-directory: frontend
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev \
+            libxdo-dev \
+            libssl-dev
+
+      - uses: jdx/mise-action@v2
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend (required for Tauri context)
+        run: npm run build
+        working-directory: frontend
+
+      - name: Check Rust
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Format check
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check

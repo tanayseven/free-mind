@@ -13,7 +13,12 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run"
+		"test": "npm run test:unit -- --run",
+		"tauri": "tauri"
+	},
+	"dependencies": {
+		"@tauri-apps/api": "^2",
+		"@tauri-apps/plugin-opener": "^2"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
@@ -22,7 +27,8 @@
 		"@internationalized/date": "^3.12.0",
 		"@lucide/svelte": "^0.544.0",
 		"@neoconfetti/svelte": "^2.0.0",
-		"@sveltejs/adapter-auto": "^6.0.0",
+		"@sveltejs/adapter-static": "^3.0.0",
+		"@tauri-apps/cli": "^2",
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
 		"@tailwindcss/forms": "^0.5.10",
