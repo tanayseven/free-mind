@@ -4,6 +4,8 @@
 
 Free Mind is a desktop application designed to help users maintain focus by blocking distracting websites and managing productive time intervals. It empowers users to concentrate on what matters most by eliminating digital distractions.
 
+> **Status:** The app is being rebuilt on **Tauri v2 + Rust**. The current codebase is a scaffold with a working UI and stubbed backend commands — website blocking is not implemented yet.
+
 ## Features & Scope
 
 ### Platform Support
@@ -11,11 +13,10 @@ Free Mind is a desktop application designed to help users maintain focus by bloc
 - **Architecture Support**: Compatible with both x86_64 and ARM64 processors
 
 ### Core Functionality
-- **Website Blocking**: Prevents access to user-defined distracting websites
+- **Website Blocking**: Prevents access to user-defined distracting websites *(planned)*
 - **Time Management**: Tracks and manages focus sessions with various timer options
 - **Customizable Blocking**: Manage individual websites or entire categories
-- **System Integration**: Runs in the background with status indicator in the system tray
-- **Permission Requirements**: Requires administrator/root privileges for website blocking functionality
+- **Permission Requirements**: Will require administrator/root privileges for website blocking
 
 ### Privacy & Security
 - **100% Privacy-Focused**: Operates entirely locally without sending any data over the network
@@ -24,91 +25,59 @@ Free Mind is a desktop application designed to help users maintain focus by bloc
 
 ## Architecture
 
-### Component Overview
-The application consists of two primary components:
+Free Mind is a single Tauri process:
 
-#### 1. Website Blocker
-- Maintains a database of websites to block, organized by categories
-- Provides granular control to enable/disable individual sites or entire categories
-- Features an intuitive user interface with:
-  - Tabular display of websites
-  - Search and filter capabilities
-  - Toggle controls for enabling/blocking
-- Implements platform-specific blocking mechanisms for Windows, macOS, and Linux
+```
+Frontend (SvelteKit / TypeScript / Tailwind)
+    ↓ Tauri `invoke` (frontend/src/lib/api.ts)
+src-tauri (Rust) — #[tauri::command] handlers
+```
 
-#### 2. Focus Timer
-The timer component offers multiple time management methods:
+- **Frontend** — SvelteKit built as a static SPA and served in the native webview.
+- **Rust backend** (`src-tauri/`) — exposes commands via `#[tauri::command]`, currently stubbed.
+
+### Focus Timer (planned)
 
 | Timer Type | Description                                                               |
 |------------|---------------------------------------------------------------------------|
-| Pomodoro   | Alternates between 25-minute focus sessions and 5-minute breaks           |
+| Pomodoro   | Alternates between focus sessions and breaks                              |
 | Countdown  | Counts down from a user-defined focus period, then switches to break time |
 | Stopwatch  | Tracks elapsed time since focus mode was activated                        |
 | Schedule   | Automatically manages focus/break periods based on pre-defined schedules  |
 
 ### Technical Stack
 
-- **Backend**: Go (for system-level interactions)
-- **Frontend**: JavaScript/TypeScript with Svelte Kit framework
-- **Desktop Integration**: Wails (provides API for JS/TS to communicate with Go backend)
+- **Backend**: Rust + [Tauri v2](https://v2.tauri.app)
+- **Frontend**: TypeScript + SvelteKit + Tailwind CSS
+- **Toolchain**: [mise](https://mise.jdx.dev) (Rust, Node, Tauri CLI)
 
 ## Development Setup
 
 ### Prerequisites
-[Install Go v1.23](https://go.dev/dl/)
-[Install Wails](https://wails.io/docs/gettingstarted/installation)
-[Install NVM](https://github.com/nvm-sh/nvm)
 
-### Frontend Setup
+Install [mise](https://mise.jdx.dev/getting-started.html). It manages the Rust,
+Node, and Tauri CLI versions pinned in `.mise.toml`.
+
+On **Linux** you also need the Tauri system dependencies (`webkit2gtk`, etc.) —
+see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). macOS
+and Windows use the system webview and need no extra packages.
+
+### Setup
+
 ```shell
-cd frontend/
-nvm install
-nvm use
-npm i
+mise install                 # Rust, Node, Tauri CLI
+npm ci --prefix frontend     # frontend dependencies
 ```
 
 ### Running the Application
-```shell
-# Development mode
-wails dev
-
-# Build for all supported platforms
-wails build
-```
-
-## Troubleshooting Desktop Issues
-
-If the application works in browser but not on desktop, here are common issues and solutions:
-
-1. **Daemon Installation Failure**: The application requires a daemon process to manage website blocking. This needs elevated privileges.
-   - On Linux/macOS: Ensure `pkexec` is available
-   - On Windows: Make sure PowerShell execution policies allow script execution
-
-2. **Permission Issues**:
-   - The daemon binary must be installed in system directories with proper permissions
-   - Check that the application has sufficient privileges to modify `/etc/hosts`
-
-3. **ZMQ Communication Problems**:
-   - Ensure ZeroMQ libraries are properly linked
-   - Verify that port files are created correctly
-
-4. **Debugging Steps**:
-   - Run `wails dev` and check browser console for errors
-   - Check system logs for permission denials or process failures
-   - Use the debug page in the application to get detailed error information
-
-## Building for Desktop
-
-To build a desktop version that works properly:
 
 ```shell
-# Build daemon binaries for all platforms
-make build-daemon-all
-
-# Then build the main application
-wails build
+make dev      # development mode (tauri dev)
+make build    # build the desktop bundle (tauri build)
 ```
 
-# License
+See `make help` for all targets, or the `run` skill under `.claude/skills/run`.
+
+## License
 
 (Decision pending)

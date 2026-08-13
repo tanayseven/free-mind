@@ -5,7 +5,7 @@ import Footer from './Footer.svelte';
 
 const mockBrowserOpenURL = vi.fn();
 
-vi.mock('../../wailsjs/runtime/runtime', () => ({
+vi.mock('$lib/api', () => ({
 	BrowserOpenURL: (url: string) => mockBrowserOpenURL(url)
 }));
 

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Free Mind",
+  "version": "0.1.0",
+  "identifier": "tech.tanay.free-mind",
+  "build": {
+    "beforeDevCommand": {
+      "cwd": "../frontend",
+      "script": "npm run dev"
+    },
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": {
+      "cwd": "../frontend",
+      "script": "npm run build"
+    },
+    "frontendDist": "../frontend/build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Free Mind",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
