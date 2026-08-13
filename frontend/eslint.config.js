@@ -37,5 +37,13 @@ export default defineConfig(
 				svelteConfig
 			}
 		}
+	},
+	{
+		// Vendored shadcn-svelte UI primitives accept arbitrary hrefs (including
+		// external URLs), so link resolution does not apply to them.
+		files: ['src/lib/components/ui/**/*.svelte'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
 	}
 );

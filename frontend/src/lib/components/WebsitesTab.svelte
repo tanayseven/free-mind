@@ -4,6 +4,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Search, Pencil, Check, X, Trash2, Plus } from '@lucide/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	export type WebsiteEntry = {
 		id: string;
@@ -35,7 +36,7 @@
 	let filterText = $state('');
 	let editingId = $state<string | null>(null);
 	let editingDomain = $state('');
-	let selectedIds = $state(new Set<string>());
+	let selectedIds = new SvelteSet<string>();
 	let editInput = $state<HTMLInputElement | null>(null);
 
 	let filtered = $derived(
@@ -56,21 +57,15 @@
 
 	function toggleSelectAll() {
 		if (allSelected) {
-			const next = new Set(selectedIds);
-			filtered.forEach((w) => next.delete(w.id));
-			selectedIds = next;
+			filtered.forEach((w) => selectedIds.delete(w.id));
 		} else {
-			const next = new Set(selectedIds);
-			filtered.forEach((w) => next.add(w.id));
-			selectedIds = next;
+			filtered.forEach((w) => selectedIds.add(w.id));
 		}
 	}
 
 	function toggleSelect(id: string) {
-		const next = new Set(selectedIds);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		selectedIds = next;
+		if (selectedIds.has(id)) selectedIds.delete(id);
+		else selectedIds.add(id);
 	}
 
 	function startEdit(entry: WebsiteEntry) {
@@ -97,15 +92,13 @@
 
 	function deleteEntry(id: string) {
 		websites = websites.filter((w) => w.id !== id);
-		const next = new Set(selectedIds);
-		next.delete(id);
-		selectedIds = next;
+		selectedIds.delete(id);
 	}
 
 	function deleteSelected() {
 		const toDelete = new Set(selectedIds);
 		websites = websites.filter((w) => !toDelete.has(w.id));
-		selectedIds = new Set();
+		selectedIds.clear();
 	}
 
 	function addEntry() {
@@ -247,7 +240,7 @@
 								onchange={(e) => updateCategory(entry.id, e.currentTarget.value)}
 								class="cursor-pointer rounded border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
 							>
-								{#each categories as cat}
+								{#each categories as cat (cat)}
 									<option value={cat} selected={cat === entry.category}>{cat}</option>
 								{/each}
 							</select>
