@@ -32,7 +32,7 @@
 		</div>
 
 		<div class="flex flex-wrap justify-center gap-2">
-			{#each presets as preset}
+			{#each presets as preset (preset.minutes)}
 				<button
 					class="h-8 rounded-md border px-3 text-xs font-medium transition-colors
                         {selectedMinutes === preset.minutes

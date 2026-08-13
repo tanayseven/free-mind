@@ -11,8 +11,7 @@
 		LoadBlockedWebsites,
 		SaveBlockedWebsites,
 		LoadSettings,
-		SaveSettings,
-		Environment
+		SaveSettings
 	} from '$lib/api';
 	import { Switch } from '@/components/ui/switch';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -39,7 +38,6 @@
 	let isLoading = $state(true);
 	let showInstallButton = $state(false);
 	let isBlocking = $state(false);
-	let isMac = $state(false);
 	let isDark = $state(false);
 	let selectedMode = $state('free');
 	let websites = $state<WebsiteEntry[]>([]);
@@ -141,9 +139,6 @@
 			if (isDark) {
 				document.documentElement.classList.add('dark');
 			}
-
-			const env = await Environment();
-			isMac = env.platform === 'darwin';
 
 			try {
 				const json = await LoadBlockedWebsites();

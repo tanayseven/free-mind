@@ -66,7 +66,9 @@ fn save_blocked_websites(json: String) -> bool {
 
 #[tauri::command]
 fn load_settings() -> AppSettings {
-    AppSettings { unblock_waiting: 30 }
+    AppSettings {
+        unblock_waiting: 30,
+    }
 }
 
 #[tauri::command]

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import { Switch } from '@/components/ui/switch';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let {
 		isBlocking,
@@ -15,16 +16,14 @@
 	} = $props();
 
 	const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-	let selectedDays = $state(new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']));
+	let selectedDays = new SvelteSet(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
 
 	function toggleDay(day: string) {
-		const next = new Set(selectedDays);
-		if (next.has(day)) {
-			next.delete(day);
+		if (selectedDays.has(day)) {
+			selectedDays.delete(day);
 		} else {
-			next.add(day);
+			selectedDays.add(day);
 		}
-		selectedDays = next;
 	}
 </script>
 
@@ -36,7 +35,7 @@
 		</div>
 
 		<div class="flex flex-wrap justify-center gap-1.5">
-			{#each days as day}
+			{#each days as day (day)}
 				<button
 					class="size-9 rounded-md border text-xs font-medium transition-colors
                         {selectedDays.has(day)
