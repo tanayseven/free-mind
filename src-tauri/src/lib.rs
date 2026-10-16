@@ -1,10 +1,14 @@
+pub mod daemon;
 mod hosts;
+mod install;
+mod ipc;
 
+use ipc::Request;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
-// NOTE: Blocking edits the hosts file directly (see `hosts`). The daemon and
-// persistence commands are still stubs returning sensible defaults.
+// NOTE: Blocking goes through the privileged daemon (see `daemon`), which edits
+// the hosts file. Persistence commands are still in-memory stubs.
 
 // Domains from the last `send_block_list`, applied by `start_blocking`.
 static BLOCK_LIST: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -106,10 +110,20 @@ struct Environment {
     arch: String,
 }
 
-#[tauri::command]
+// Commands that talk to the daemon or show an admin prompt are `async` so they
+// run off the main thread and don't freeze the window.
+
+/// Empty string means connected; anything containing "Error" makes the
+/// frontend (re)install the daemon.
+#[tauri::command(async)]
 fn connect_to_daemon() -> String {
-    // Empty string signals "connected" to the frontend (no "Error" substring).
-    String::new()
+    if !install::is_current() {
+        return "Error: daemon is not installed or is outdated".to_string();
+    }
+    match ipc::send(&Request::Ping) {
+        Ok(()) => String::new(),
+        Err(e) => format!("Error: {e}"),
+    }
 }
 
 #[tauri::command]
@@ -119,12 +133,15 @@ fn check_blocking() -> bool {
 
 #[tauri::command]
 fn check_daemon_installed() -> bool {
-    true
+    install::is_installed()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn install_and_start_daemon() -> String {
-    "Daemon installed".to_string()
+    match install::install() {
+        Ok(()) => "Daemon installed".to_string(),
+        Err(e) => format!("Error installing daemon: {e}"),
+    }
 }
 
 #[tauri::command]
@@ -141,18 +158,18 @@ fn send_block_list(list: String) -> bool {
     true
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn start_blocking() -> Result<bool, String> {
     let domains = BLOCK_LIST.lock().unwrap().clone();
-    hosts::block(&domains).map_err(|e| format!("Failed to update hosts file: {e}"))?;
+    ipc::send(&Request::Block { domains })?;
     Ok(true)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn stop_blocking() -> String {
-    match hosts::unblock() {
+    match ipc::send(&Request::Unblock) {
         Ok(()) => String::new(),
-        Err(e) => format!("Error: failed to update hosts file: {e}"),
+        Err(e) => format!("Error: {e}"),
     }
 }
 

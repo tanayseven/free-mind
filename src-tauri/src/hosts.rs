@@ -2,18 +2,19 @@
 //!
 //! Blocked domains are written between marker lines so they can be detected and
 //! removed without touching the rest of the file. Writing the hosts file needs
-//! elevated privileges, obtained per write through the OS's native prompt.
+//! elevated privileges, so writes happen in the daemon (see `daemon`).
 
 use std::fs;
 use std::io;
+use std::path::Path;
 
 const BEGIN_MARKER: &str = "# BEGIN Free Mind block list";
 const END_MARKER: &str = "# END Free Mind block list";
 
 #[cfg(windows)]
-const HOSTS_PATH: &str = r"C:\Windows\System32\drivers\etc\hosts";
+pub const HOSTS_PATH: &str = r"C:\Windows\System32\drivers\etc\hosts";
 #[cfg(not(windows))]
-const HOSTS_PATH: &str = "/etc/hosts";
+pub const HOSTS_PATH: &str = "/etc/hosts";
 
 /// Accepts plain hostnames only, so user input can't inject extra hosts entries.
 pub fn is_valid_domain(domain: &str) -> bool {
@@ -72,79 +73,38 @@ pub fn is_blocking() -> bool {
     fs::read_to_string(HOSTS_PATH).is_ok_and(|c| has_block(&c))
 }
 
-pub fn block(domains: &[String]) -> io::Result<()> {
-    let current = fs::read_to_string(HOSTS_PATH)?;
-    write_hosts(&with_block(&current, domains))
+/// Writes a block for `domains` into the hosts file at `path`. Needs root /
+/// Administrator, so in the app this only runs inside the daemon.
+pub fn block(path: &Path, domains: &[String]) -> io::Result<()> {
+    let current = fs::read_to_string(path)?;
+    fs::write(path, with_block(&current, domains))
 }
 
-pub fn unblock() -> io::Result<()> {
-    let current = fs::read_to_string(HOSTS_PATH)?;
+/// Removes the block from the hosts file at `path`, if present.
+pub fn unblock(path: &Path) -> io::Result<()> {
+    let current = fs::read_to_string(path)?;
     if !has_block(&current) {
         return Ok(());
     }
-    write_hosts(&strip_block(&current))
+    fs::write(path, strip_block(&current))
 }
 
-/// Copies a per-user temp file over the hosts file via an admin prompt, then
-/// flushes the DNS cache.
-#[cfg(target_os = "macos")]
-fn write_hosts(content: &str) -> io::Result<()> {
+/// Best-effort DNS cache flush so hosts changes apply immediately.
+pub fn flush_dns() {
     use std::process::Command;
 
-    // $TMPDIR on macOS is per-user, so other users can't swap the file.
-    let tmp = std::env::temp_dir().join("free-mind-hosts");
-    fs::write(&tmp, content)?;
-    let script = format!(
-        "do shell script \"cat '{}' > {HOSTS_PATH} && dscacheutil -flushcache; killall -HUP mDNSResponder\" with administrator privileges",
-        tmp.display()
-    );
-    let output = Command::new("osascript").args(["-e", &script]).output();
-    let _ = fs::remove_file(&tmp);
-    check_output(output?)
-}
-
-/// Pipes the new content to `tee` through polkit's admin prompt.
-#[cfg(all(unix, not(target_os = "macos")))]
-fn write_hosts(content: &str) -> io::Result<()> {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
-
-    let mut child = Command::new("pkexec")
-        .args(["tee", HOSTS_PATH])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    child
-        .stdin
-        .take()
-        .expect("stdin is piped")
-        .write_all(content.as_bytes())?;
-    check_output(child.wait_with_output()?)?;
-    // Best effort: only systemd-resolved caches by default.
-    let _ = Command::new("resolvectl").arg("flush-caches").output();
-    Ok(())
-}
-
-/// Writes directly; requires the app to be running as Administrator.
-#[cfg(windows)]
-fn write_hosts(content: &str) -> io::Result<()> {
-    fs::write(HOSTS_PATH, content)?;
-    let _ = std::process::Command::new("ipconfig")
-        .arg("/flushdns")
-        .output();
-    Ok(())
-}
-
-#[cfg(unix)]
-fn check_output(output: std::process::Output) -> io::Result<()> {
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(io::Error::other(
-            String::from_utf8_lossy(&output.stderr).trim().to_string(),
-        ))
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("dscacheutil").arg("-flushcache").output();
+        let _ = Command::new("killall")
+            .args(["-HUP", "mDNSResponder"])
+            .output();
     }
+    // Only systemd-resolved caches by default.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = Command::new("resolvectl").arg("flush-caches").output();
+    #[cfg(windows)]
+    let _ = Command::new("ipconfig").arg("/flushdns").output();
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@
 
 **Free Mind** is a cross-platform desktop app that blocks distracting websites and helps users stay focused.
 
-**Key traits:** offline-only, zero data collection. Website blocking (which modifies the system hosts file and requires elevated privileges) is **not yet implemented** in the Tauri version — the current codebase is a scaffold with a working UI and stubbed backend commands.
+**Key traits:** offline-only, zero data collection. Websites are blocked by editing the system hosts file through a privileged helper daemon, installed once with a single admin prompt. Website list and settings persistence are still in-memory stubs.
 
 ---
 
@@ -13,14 +13,38 @@
 ```
 Frontend (SvelteKit / TypeScript / Tailwind)
     ↓ Tauri `invoke` (frontend/src/lib/api.ts)
-src-tauri (Rust)
+src-tauri (Rust, user privileges)
     ↓ #[tauri::command] handlers (src-tauri/src/lib.rs)
+    ↓ JSON lines over a local socket (src-tauri/src/ipc.rs)
+Daemon (same binary with `--daemon`, root / LocalSystem)
+    ↓ writes the hosts file (src-tauri/src/hosts.rs)
 ```
 
-The app is a single Tauri process:
+- **Frontend**: SvelteKit built as a static SPA (`@sveltejs/adapter-static`), served inside the native webview.
+- **Rust backend** (`src-tauri/`): exposes commands via `#[tauri::command]`. Blocking commands forward to the daemon. Website list and settings are kept in memory only.
+- **Daemon** (`src-tauri/src/daemon.rs`): the app binary started with `--daemon` by launchd (macOS), systemd (Linux) or the Windows service manager. It is the only thing that writes the hosts file, and it re-validates every domain.
 
-- **Frontend** — SvelteKit built as a static SPA (`@sveltejs/adapter-static`), served inside the native webview.
-- **Rust backend** (`src-tauri/`) — exposes commands via `#[tauri::command]`. These are currently **stubs** returning sensible defaults so the UI runs end-to-end.
+### Daemon install
+
+`install::install()` (`src-tauri/src/install.rs`) copies the running executable to an admin-only location and registers it as a boot-time service, behind one elevation prompt (`osascript` / `pkexec` / UAC). On startup, `connect_to_daemon` byte-compares the installed copy with the running exe. A mismatch (app update or dev rebuild) makes the frontend reinstall it, which shows the prompt again.
+
+| OS | Binary | Service | Socket |
+|----|--------|---------|--------|
+| macOS | `/Library/PrivilegedHelperTools/tech.tanay.free-mind.daemon` | `/Library/LaunchDaemons/tech.tanay.free-mind.daemon.plist` | `/var/run/tech.tanay.free-mind.sock` (mode 0600, owned by installing user) |
+| Linux | `/usr/local/libexec/free-mind/free-mind-daemon` | `free-mind-daemon.service` (systemd) | `/run/tech.tanay.free-mind.sock` (same) |
+| Windows | `C:\Program Files\Free Mind\free-mind-daemon.exe` | `FreeMindDaemon` service | `\\.\pipe\tech.tanay.free-mind` (authenticated users) |
+
+Uninstall:
+
+```bash
+# macOS
+sudo launchctl bootout system/tech.tanay.free-mind.daemon
+sudo rm /Library/LaunchDaemons/tech.tanay.free-mind.daemon.plist /Library/PrivilegedHelperTools/tech.tanay.free-mind.daemon
+# Linux
+sudo systemctl disable --now free-mind-daemon && sudo rm /etc/systemd/system/free-mind-daemon.service /usr/local/libexec/free-mind/free-mind-daemon
+# Windows (admin PowerShell)
+Stop-Service FreeMindDaemon; sc.exe delete FreeMindDaemon; Remove-Item "C:\Program Files\Free Mind" -Recurse
+```
 
 ### Frontend ↔ Rust bindings
 
@@ -28,19 +52,19 @@ The app is a single Tauri process:
 
 Rust commands live in `src-tauri/src/lib.rs`:
 
-| Command | Returns (stub) |
-|---------|----------------|
-| `connect_to_daemon` | `""` (empty = connected) |
-| `check_blocking` | `false` |
-| `check_daemon_installed` | `true` |
-| `install_and_start_daemon` | `"Daemon installed"` |
-| `send_block_list(list)` | `true` |
-| `start_blocking` | `true` |
-| `stop_blocking` | `""` |
-| `load_blocked_websites` | `"[]"` |
-| `save_blocked_websites(json)` | `true` |
-| `load_settings` | `{ unblockWaiting: 30 }` |
-| `save_settings(settings)` | `true` |
+| Command | Behaviour |
+|---------|-----------|
+| `connect_to_daemon` | Pings the daemon; `""` = connected, `"Error: …"` = not installed / outdated / unreachable |
+| `check_blocking` | Reads the hosts file for the Free Mind block (no IPC; polled every 100ms) |
+| `check_daemon_installed` | Whether the daemon binary exists at its install path |
+| `install_and_start_daemon` | One-time elevated install; waits for the daemon to answer |
+| `send_block_list(list)` | Validates and stores comma-separated domains in memory |
+| `start_blocking` | Sends the stored list to the daemon |
+| `stop_blocking` | Asks the daemon to remove the block; `""` on success |
+| `load_blocked_websites` | In-memory list, seeded with social / news / video defaults (stub) |
+| `save_blocked_websites(json)` | Stores the list in memory (stub) |
+| `load_settings` | `{ unblockWaiting: 30 }` (stub) |
+| `save_settings(settings)` | `true` (stub) |
 | `environment` | `{ platform, arch }` (platform mapped to Go's GOOS names) |
 
 ---
@@ -107,8 +131,12 @@ npm run test      # Vitest tests
 
 | File | Role |
 |------|------|
-| `src-tauri/src/lib.rs` | Tauri app setup + command handlers (stubs) |
-| `src-tauri/src/main.rs` | Binary entry point → `free_mind_lib::run()` |
+| `src-tauri/src/lib.rs` | Tauri app setup + command handlers |
+| `src-tauri/src/main.rs` | Binary entry point → `daemon::run()` with `--daemon`, else `free_mind_lib::run()` |
+| `src-tauri/src/daemon.rs` | Privileged daemon: socket server + Windows service glue |
+| `src-tauri/src/ipc.rs` | App ↔ daemon message types and client |
+| `src-tauri/src/install.rs` | One-time elevated daemon install per OS |
+| `src-tauri/src/hosts.rs` | Hosts file block editing + DNS flush |
 | `src-tauri/Cargo.toml` | Rust crate + Tauri dependencies |
 | `src-tauri/tauri.conf.json` | Tauri config (window, bundle, build hooks) |
 | `src-tauri/capabilities/default.json` | Permissions for the main window |
@@ -124,7 +152,8 @@ npm run test      # Vitest tests
 
 ## Outstanding TODOs
 
-- Implement website blocking in Rust (hosts file, DNS flush, elevated privileges)
+- Persist the website list and settings to disk
+- Test the daemon install on Linux and Windows
 - Packaging: DEB, AppImage, RPM (Linux), DMG (macOS), MSI (Windows) via `tauri build`
 - Focus timer feature (Pomodoro, Countdown, Stopwatch, Schedule)
 - Comprehensive cross-platform testing
