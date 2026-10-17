@@ -93,10 +93,9 @@
 			const installedCheck = await CheckDaemonInstalled();
 			console.log('Daemon installed check result:', installedCheck);
 
+			// Installed but unreachable or outdated: reinstalling also restarts it.
 			if (installedCheck) {
 				daemonStatus = 'Daemon appears to be installed. Attempting to restart...';
-				isLoading = false;
-				return true;
 			}
 
 			console.log('Calling InstallAndStartDaemon...');
