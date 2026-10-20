@@ -2,6 +2,7 @@ pub mod daemon;
 mod hosts;
 mod install;
 mod ipc;
+mod tray;
 
 use ipc::Request;
 use serde::{Deserialize, Serialize};
@@ -67,7 +68,7 @@ const DEFAULT_WEBSITES: &[(&str, &[&str])] = &[
     ),
 ];
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct WebsiteEntry {
     id: String,
     domain: String,
@@ -215,9 +216,30 @@ fn environment() -> Environment {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Enabled domains from the current website list, as the UI would send them.
+fn enabled_domains() -> Vec<String> {
+    serde_json::from_str::<Vec<WebsiteEntry>>(&load_blocked_websites())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|w| w.enabled)
+        .map(|w| w.domain)
+        .collect()
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            tray::create(app.handle())?;
+            Ok(())
+        })
+        // Closing the window hides it; the app keeps running in the tray.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             connect_to_daemon,
             check_blocking,
@@ -232,6 +254,13 @@ pub fn run() {
             save_settings,
             environment,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // Clicking the Dock icon brings the hidden window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                tray::show_main_window(_app);
+            }
+        });
 }

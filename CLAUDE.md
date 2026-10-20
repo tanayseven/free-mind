@@ -22,6 +22,7 @@ Daemon (same binary with `--daemon`, root / LocalSystem)
 
 - **Frontend**: SvelteKit built as a static SPA (`@sveltejs/adapter-static`), served inside the native webview.
 - **Rust backend** (`src-tauri/`): exposes commands via `#[tauri::command]`. Blocking commands forward to the daemon. Website list and settings are kept in memory only.
+- **Tray** (`src-tauri/src/tray.rs`): status bar / system tray icon with a menu (blocking status, Start Blocking, Stop Blocking…, Open, Quit). Closing the window only hides it; the app keeps running until Quit. "Stop Blocking…" opens the window instead of stopping, so the unblock countdown can't be bypassed.
 - **Daemon** (`src-tauri/src/daemon.rs`): the app binary started with `--daemon` by launchd (macOS), systemd (Linux) or the Windows service manager. It is the only thing that writes the hosts file, and it re-validates every domain.
 
 ### Daemon install
@@ -151,6 +152,7 @@ Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first 
 | `src-tauri/src/ipc.rs` | App ↔ daemon message types and client |
 | `src-tauri/src/install.rs` | One-time elevated daemon install per OS |
 | `src-tauri/src/hosts.rs` | Hosts file block editing + DNS flush |
+| `src-tauri/src/tray.rs` | Status bar / tray icon and menu |
 | `src-tauri/Cargo.toml` | Rust crate + Tauri dependencies |
 | `src-tauri/tauri.conf.json` | Tauri config (window, bundle, build hooks) |
 | `src-tauri/capabilities/default.json` | Permissions for the main window |
