@@ -127,6 +127,20 @@ npm run test      # Vitest tests
 
 ---
 
+## Releasing
+
+`.github/workflows/release.yml` builds installers for macOS (Apple Silicon + Intel: `.dmg`), Linux (x64 + ARM64: `.deb`, `.rpm`, `.AppImage`) and Windows (x64: `.msi`, NSIS `.exe`). It runs the Rust tests on each platform first.
+
+1. Bump `version` in `src-tauri/tauri.conf.json` (and `src-tauri/Cargo.toml`), and merge to `main`.
+2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`. The tag must equal `v` + the app version, or the workflow fails.
+3. The workflow creates a **draft** GitHub release with all installers attached. Review it and publish.
+
+Run it manually from Actions → Release → Run workflow to build without releasing (installers are uploaded as workflow artifacts).
+
+Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first launch. Signing needs Apple Developer / Windows code-signing certificates added as repository secrets.
+
+---
+
 ## Key Files
 
 | File | Role |
