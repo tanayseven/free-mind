@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Footer from './Footer.svelte';
 	import '../app.css';
 
 	let { children } = $props();
@@ -9,10 +8,4 @@
 	<main class="flex min-h-0 flex-1 flex-col">
 		{@render children()}
 	</main>
-
-	<Footer />
 </div>
-
-<style>
-	/* Additional styles can be added here if needed */
-</style>

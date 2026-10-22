@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
-	import { Switch } from '@/components/ui/switch';
+	import BlockButton from './BlockButton.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	let {
@@ -72,15 +72,10 @@
 			</div>
 		</div>
 
-		<p class="text-xs text-muted-foreground">
+		<p class="text-center text-xs text-muted-foreground">
 			Schedule mode coming soon — block automatically on selected days and times.
 		</p>
 
-		<Switch
-			checked={isBlocking}
-			onCheckedChange={(checked) => (checked ? onStart() : onStop())}
-			{disabled}
-			size="sm"
-		/>
+		<BlockButton {isBlocking} {disabled} onclick={() => (isBlocking ? onStop() : onStart())} />
 	</div>
 </div>
