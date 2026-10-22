@@ -6,20 +6,52 @@ on:
   pull_request:
     branches: [main]
 
+# A new push to a PR supersedes the run already in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
       - uses: jdx/mise-action@v4
 
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
         working-directory: frontend
 
+      - name: Get Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+        working-directory: frontend
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # The browser is cached, but its system libraries are not.
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
         working-directory: frontend
 
       - name: Lint
@@ -35,21 +67,21 @@ jobs:
         working-directory: frontend
 
   rust:
-    runs-on: ubuntu-latest
+    # Pinned: the apt cache below would otherwise restore packages built for
+    # one Ubuntu release onto the next when ubuntu-latest moves. Bump the apt
+    # cache `version` when changing this.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
+      # Cached, so a slow apt mirror can't stall the job (one run spent 22
+      # minutes here).
       - name: Install Tauri system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libgtk-3-dev \
-            libxdo-dev \
-            libssl-dev
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libxdo-dev libssl-dev
+          version: 1.0
 
       - uses: jdx/mise-action@v4
 
@@ -57,16 +89,13 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: frontend
-
-      - name: Build frontend (required for Tauri context)
-        run: npm run build
-        working-directory: frontend
-
-      - name: Check Rust
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+      # tauri::generate_context! only needs frontendDist to exist for
+      # `cargo check`; the real frontend is built by the frontend job.
+      - name: Stub frontend build
+        run: mkdir -p frontend/build && echo '<!doctype html>' > frontend/build/index.html
 
       - name: Format check
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Check Rust
+        run: cargo check --manifest-path src-tauri/Cargo.toml
