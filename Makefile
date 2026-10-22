@@ -12,8 +12,8 @@ build: ## Build the desktop app bundle for the current platform
 build-frontend: ## Build the Svelte frontend static assets (frontend/build)
 	npm --prefix frontend run build
 
-icons: ## Regenerate app icons from a 1024x1024 PNG: make icons SRC=path/to/icon.png
-	tauri icon $(SRC)
+icons: ## Regenerate app, tray and favicon icons from the SVGs in frontend/static
+	scripts/generate-icons.sh
 
 lint: ## Lint and format-check the frontend
 	npm --prefix frontend run lint

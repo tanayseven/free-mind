@@ -11,7 +11,9 @@
 		LoadBlockedWebsites,
 		SaveBlockedWebsites,
 		LoadSettings,
-		SaveSettings
+		SaveSettings,
+		SetStatusIcon,
+		type AppStatus
 	} from '$lib/api';
 	import { Switch } from '@/components/ui/switch';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -43,6 +45,22 @@
 	let websites = $state<WebsiteEntry[]>([]);
 	let websitesReady = $state(false);
 	let unblockWaiting = $state(30);
+	let unblocking = $state(false);
+
+	// Tray + window icon follow the blocking state.
+	const appStatus: AppStatus = $derived(
+		isLoading || showInstallButton
+			? 'inactive'
+			: unblocking
+				? 'unblocking'
+				: isBlocking
+					? 'blocked'
+					: 'unblocked'
+	);
+
+	$effect(() => {
+		SetStatusIcon(appStatus).catch((e: unknown) => console.error('Failed to set status icon:', e));
+	});
 
 	$effect(() => {
 		if (!websitesReady) return;
@@ -322,6 +340,7 @@
 						onStop={sendStopCommand}
 						disabled={isLoading || showInstallButton}
 						{unblockWaiting}
+						bind:unblocking
 					/>
 				{:else if selectedMode === 'timer'}
 					<TimerMode
@@ -375,6 +394,7 @@
 						onStop={sendStopCommand}
 						disabled={isLoading || showInstallButton}
 						{unblockWaiting}
+						bind:unblocking
 					/>
 				{:else if selectedMode === 'timer'}
 					<TimerMode

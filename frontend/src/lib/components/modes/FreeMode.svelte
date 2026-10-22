@@ -7,13 +7,15 @@
 		onStart,
 		onStop,
 		disabled = false,
-		unblockWaiting = 30
+		unblockWaiting = 30,
+		unblocking = $bindable(false)
 	}: {
 		isBlocking: boolean;
 		onStart: () => void;
 		onStop: () => void;
 		disabled?: boolean;
 		unblockWaiting?: number;
+		unblocking?: boolean;
 	} = $props();
 
 	let showCountdown = $state(false);
@@ -22,6 +24,12 @@
 
 	// Derived: On during countdown, Off once stop is initiated, otherwise mirrors isBlocking
 	const switchIsOn = $derived(showCountdown ? true : stopInitiated ? false : isBlocking);
+
+	// Reported to the page for the tray icon; reset if unmounted mid-countdown
+	$effect(() => {
+		unblocking = showCountdown;
+		return () => (unblocking = false);
+	});
 
 	// Once isBlocking actually reflects the stopped state, clear the flag
 	$effect(() => {

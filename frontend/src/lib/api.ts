@@ -12,6 +12,8 @@ export interface AppSettings {
 	unblockWaiting: number;
 }
 
+export type AppStatus = 'inactive' | 'blocked' | 'unblocking' | 'unblocked';
+
 export interface EnvironmentInfo {
 	platform: string;
 	arch: string;
@@ -59,6 +61,10 @@ export function LoadSettings(): Promise<AppSettings> {
 
 export function SaveSettings(settings: AppSettings): Promise<boolean> {
 	return invoke('save_settings', { settings });
+}
+
+export function SetStatusIcon(status: AppStatus): Promise<void> {
+	return invoke('set_status_icon', { status });
 }
 
 export function Environment(): Promise<EnvironmentInfo> {
