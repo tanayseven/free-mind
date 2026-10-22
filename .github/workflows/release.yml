@@ -78,8 +78,21 @@ jobs:
           workspaces: src-tauri
           key: ${{ matrix.target }}
 
+      # npm's cache lives in a different place on Windows.
+      - name: Get npm cache directory
+        id: npm-cache-dir
+        shell: bash
+        run: echo "dir=$(npm config get cache)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
         working-directory: frontend
 
       # tauri::generate_context! needs the built frontend to compile tests.
