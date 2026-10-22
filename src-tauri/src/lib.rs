@@ -7,6 +7,7 @@ mod tray;
 use ipc::Request;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use tauri::AppHandle;
 
 // NOTE: Blocking goes through the privileged daemon (see `daemon`), which edits
 // the hosts file. Persistence commands are still in-memory stubs.
@@ -216,6 +217,11 @@ fn save_settings(settings: AppSettings) -> bool {
 }
 
 #[tauri::command]
+fn set_status_icon(app: AppHandle, status: tray::Status) -> Result<(), String> {
+    tray::set_status(&app, status).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn environment() -> Environment {
     // Map Rust's OS name onto Go's runtime.GOOS values the frontend expects.
     let platform = match std::env::consts::OS {
@@ -266,6 +272,7 @@ pub fn run() {
             save_blocked_websites,
             load_settings,
             save_settings,
+            set_status_icon,
             environment,
         ])
         .build(tauri::generate_context!())

@@ -66,7 +66,20 @@ Rust commands live in `src-tauri/src/lib.rs`:
 | `save_blocked_websites(json)` | Stores the list in memory (stub) |
 | `load_settings` | `{ unblockWaiting }`, default 30, kept in memory (stub) |
 | `save_settings(settings)` | Stores settings in memory (stub) |
+| `set_status_icon(status)` | Swaps tray + window icon: `inactive` / `blocked` / `unblocking` / `unblocked` |
 | `environment` | `{ platform, arch }` (platform mapped to Go's GOOS names) |
+
+### Icons
+
+Source artwork lives in `frontend/static/` (800x600 SVGs): `frame` (locked brain), `broken-chain-1` (chains breaking), `broken-chain-2` (chains broken), each with a `-grayscale` variant. `make icons` regenerates everything from them:
+
+| Use | Artwork |
+|-----|---------|
+| App bundle icon, favicon | `frame` |
+| Tray/window: blocked | `frame` |
+| Tray/window: unblocking (Free Mode countdown) | `broken-chain-1` |
+| Tray/window: unblocked | `broken-chain-2` |
+| Tray/window: inactive (daemon not connected) | `frame-grayscale` |
 
 ---
 
@@ -110,7 +123,7 @@ Once mise is activated in your shell, `tauri`, `cargo`, and `npm` are available 
 make dev              # tauri dev — Vite hot reload + native window
 make build            # tauri build — bundle the desktop app
 make build-frontend   # build the Svelte static assets only
-make icons SRC=x.png  # regenerate app icons from a 1024x1024 PNG
+make icons            # regenerate app, tray and favicon icons from frontend/static/*.svg
 make lint             # frontend lint + format check
 make test             # frontend tests
 make help             # list all targets
@@ -152,7 +165,8 @@ Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first 
 | `src-tauri/src/ipc.rs` | App ↔ daemon message types and client |
 | `src-tauri/src/install.rs` | One-time elevated daemon install per OS |
 | `src-tauri/src/hosts.rs` | Hosts file block editing + DNS flush |
-| `src-tauri/src/tray.rs` | Status bar / tray icon and menu |
+| `src-tauri/src/tray.rs` | Status bar / tray icon and menu; icon follows blocking status |
+| `scripts/generate-icons.sh` | Crops `frontend/static/*.svg` to a shared square and renders app, tray (`src-tauri/icons/status/`) and favicon icons |
 | `src-tauri/Cargo.toml` | Rust crate + Tauri dependencies |
 | `src-tauri/tauri.conf.json` | Tauri config (window, bundle, build hooks) |
 | `src-tauri/capabilities/default.json` | Permissions for the main window |
