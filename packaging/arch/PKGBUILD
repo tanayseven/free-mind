@@ -1,0 +1,23 @@
+# Repackages the .deb that `tauri build` produces into an Arch package.
+# The release workflow copies the debs next to this file as
+# free-mind-<arch>.deb and sets PKGVER to the app version. Nothing is
+# compiled, so both arches can be packaged on an x86_64 host.
+pkgname=free-mind
+pkgver=${PKGVER:?set PKGVER to the app version}
+pkgrel=1
+pkgdesc="Block distracting websites and stay focused"
+arch=('x86_64' 'aarch64')
+url="https://github.com/tanayseven/free-mind"
+license=('unknown')
+# polkit provides pkexec, which the one-time daemon install uses.
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'polkit')
+options=('!strip' '!debug')
+source_x86_64=("free-mind-x86_64.deb")
+source_aarch64=("free-mind-aarch64.deb")
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+
+package() {
+	# makepkg has already unpacked the .deb into control/data tarballs.
+	bsdtar -xf data.tar.* -C "$pkgdir"
+}

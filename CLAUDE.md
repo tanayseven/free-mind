@@ -143,7 +143,17 @@ npm run test      # Vitest tests
 
 ## Releasing
 
-`.github/workflows/release.yml` builds installers for macOS (Apple Silicon + Intel: `.dmg`), Linux (x64 + ARM64: `.deb`, `.rpm`, `.AppImage`) and Windows (x64: `.msi`, NSIS `.exe`). It runs the Rust tests on each platform first.
+`.github/workflows/release.yml` builds installers for every platform. It runs the Rust tests on each platform first.
+
+| Platform | Formats | Built by |
+|----------|---------|----------|
+| macOS (Apple Silicon + Intel) | `.dmg` | `build` job (`tauri-action`) |
+| Linux (x64 + ARM64) | `.deb`, `.rpm`, `.AppImage` | `build` job |
+| Linux (x64 + ARM64) | `.pkg.tar.gz` (Arch) | `arch` job: repackages the `.deb` with `packaging/arch/PKGBUILD` in an `archlinux` container |
+| Windows (x64) | `.msi`, NSIS `.exe` | `build` job |
+| Windows (x64) | `.msix` | `msix` job: packs `free-mind.exe` with `packaging/msix/AppxManifest.xml` using `makeappx` |
+
+The `arch` and `msix` jobs run after `build` and use `gh release upload` to add their files to the same draft release.
 
 1. Bump `version` in `src-tauri/tauri.conf.json` (and `src-tauri/Cargo.toml`), and merge to `main`.
 2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`. The tag must equal `v` + the app version, or the workflow fails.
@@ -151,7 +161,9 @@ npm run test      # Vitest tests
 
 Run it manually from Actions → Release → Run workflow to build without releasing (installers are uploaded as workflow artifacts).
 
-Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first launch. Signing needs Apple Developer / Windows code-signing certificates added as repository secrets.
+Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first launch. Signing needs Apple Developer / Windows code-signing certificates added as repository secrets. An unsigned MSIX can't be installed normally. Until it's signed (the manifest `Publisher` must match the certificate subject) or submitted to the Microsoft Store, it only installs with Developer Mode on: `Add-AppxPackage -AllowUnsigned <file>.msix`.
+
+Uninstalling the app through any package manager (MSIX, `pacman -R`, etc.) leaves the daemon service installed. Remove it with the uninstall commands under **Daemon install**.
 
 ---
 
@@ -179,6 +191,8 @@ Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first 
 | `frontend/svelte.config.js` | `adapter-static` with SPA fallback |
 | `.mise.toml` | Toolchain versions |
 | `Makefile` | Build automation |
+| `packaging/arch/PKGBUILD` | Arch package, repackaged from the Tauri `.deb` (release workflow) |
+| `packaging/msix/AppxManifest.xml` | MSIX manifest template (release workflow fills in version and publisher) |
 | `data/default-blocklist.json` | Default categorized block list (data, not yet wired up) |
 
 ---
@@ -187,7 +201,7 @@ Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first 
 
 - Persist the website list and settings to disk
 - Test the daemon install on Linux and Windows
-- Packaging: DEB, AppImage, RPM (Linux), DMG (macOS), MSI (Windows) via `tauri build`
+- Sign the MSIX (or publish via the Microsoft Store) and check the daemon install works from the packaged app
 - Focus timer feature (Pomodoro, Countdown, Stopwatch, Schedule)
 - Comprehensive cross-platform testing
 
