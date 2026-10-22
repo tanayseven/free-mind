@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TimerIcon from '@lucide/svelte/icons/timer';
-	import { Switch } from '@/components/ui/switch';
+	import BlockButton from './BlockButton.svelte';
 
 	let {
 		isBlocking,
@@ -46,15 +46,10 @@
 			{/each}
 		</div>
 
-		<p class="text-xs text-muted-foreground">
+		<p class="text-center text-xs text-muted-foreground">
 			Timer mode coming soon — set a duration and block automatically.
 		</p>
 
-		<Switch
-			checked={isBlocking}
-			onCheckedChange={(checked) => (checked ? onStart() : onStop())}
-			{disabled}
-			size="sm"
-		/>
+		<BlockButton {isBlocking} {disabled} onclick={() => (isBlocking ? onStop() : onStart())} />
 	</div>
 </div>

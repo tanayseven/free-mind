@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AlarmClockIcon from '@lucide/svelte/icons/alarm-clock';
-	import { Switch } from '@/components/ui/switch';
+	import BlockButton from './BlockButton.svelte';
 
 	let {
 		isBlocking,
@@ -79,15 +79,10 @@
 			</div>
 		</div>
 
-		<p class="text-xs text-muted-foreground">
+		<p class="text-center text-xs text-muted-foreground">
 			Pomodoro mode coming soon — block during work intervals, unblock during breaks.
 		</p>
 
-		<Switch
-			checked={isBlocking}
-			onCheckedChange={(checked) => (checked ? onStart() : onStop())}
-			{disabled}
-			size="sm"
-		/>
+		<BlockButton {isBlocking} {disabled} onclick={() => (isBlocking ? onStop() : onStart())} />
 	</div>
 </div>

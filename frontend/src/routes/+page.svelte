@@ -11,36 +11,42 @@
 		LoadBlockedWebsites,
 		SaveBlockedWebsites,
 		LoadSettings,
-		SaveSettings,
 		SetStatusIcon,
 		type AppStatus
 	} from '$lib/api';
-	import { Switch } from '@/components/ui/switch';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import * as Alert from '$lib/components/ui/alert/index.js';
-	import { House, LayoutGrid, List, Settings, Sun, Moon } from '@lucide/svelte';
-	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
-	import { applyTheme, detectInitialTheme } from '$lib/theme';
+	import {
+		House,
+		List,
+		Settings,
+		Infinity as InfinityIcon,
+		Timer,
+		CalendarClock,
+		AlarmClock,
+		ShieldCheck
+	} from '@lucide/svelte';
+	import { applyTheme, loadThemePreference, type ThemePreference } from '$lib/theme';
+	import { collapseWww } from '$lib/domains';
 	import StatusDot from '$lib/components/modes/StatusDot.svelte';
 	import FreeMode from '$lib/components/modes/FreeMode.svelte';
 	import TimerMode from '$lib/components/modes/TimerMode.svelte';
 	import ScheduleMode from '$lib/components/modes/ScheduleMode.svelte';
 	import PomodoroMode from '$lib/components/modes/PomodoroMode.svelte';
 	import WebsitesTab, { type WebsiteEntry } from '$lib/components/WebsitesTab.svelte';
+	import SettingsTab from '$lib/components/SettingsTab.svelte';
 
-	const modeLabels: Record<string, string> = {
-		free: '⛓️‍💥 Free',
-		timer: '⏲️ Timer',
-		schedule: '🗓️ Schedule',
-		pomodoro: '⏰ Pomodoro'
-	};
+	const modes = [
+		{ value: 'free', label: 'Free', icon: InfinityIcon },
+		{ value: 'timer', label: 'Timer', icon: Timer },
+		{ value: 'schedule', label: 'Schedule', icon: CalendarClock },
+		{ value: 'pomodoro', label: 'Pomodoro', icon: AlarmClock }
+	] as const;
 
-	let daemonStatus = $state('Loading... Please wait.');
+	let daemonStatus = $state('Starting Free Mind…');
 	let isLoading = $state(true);
 	let showInstallButton = $state(false);
 	let isBlocking = $state(false);
-	let isDark = $state(false);
+	let theme = $state<ThemePreference>('system');
 	let selectedMode = $state('free');
 	let websites = $state<WebsiteEntry[]>([]);
 	let websitesReady = $state(false);
@@ -70,9 +76,42 @@
 		);
 	});
 
-	function toggleDark(checked: boolean) {
-		isDark = checked;
-		applyTheme(checked, document.documentElement.classList, localStorage);
+	const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
+
+	function setTheme(preference: ThemePreference) {
+		theme = preference;
+		applyTheme(preference, darkQuery().matches, document.documentElement.classList, localStorage);
+	}
+
+	let enabledCount = $derived(websites.filter((w) => w.enabled).length);
+
+	// When the current blocking session started. Kept in storage so the elapsed
+	// time survives closing the window or starting from the tray.
+	let blockingSince = $state<number | null>(null);
+	let now = $state(Date.now());
+
+	$effect(() => {
+		if (isLoading || showInstallButton) return;
+		if (isBlocking && blockingSince === null) {
+			const saved = Number(localStorage.getItem('blockingSince'));
+			blockingSince = saved > 0 ? saved : Date.now();
+			localStorage.setItem('blockingSince', String(blockingSince));
+		} else if (!isBlocking && blockingSince !== null) {
+			blockingSince = null;
+			localStorage.removeItem('blockingSince');
+		}
+	});
+
+	$effect(() => {
+		const id = setInterval(() => (now = Date.now()), 15_000);
+		return () => clearInterval(id);
+	});
+
+	function formatElapsed(ms: number): string {
+		const minutes = Math.floor(ms / 60_000);
+		if (minutes < 1) return 'just now';
+		if (minutes < 60) return `for ${minutes} min`;
+		return `for ${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 	}
 
 	async function checkDaemonConnection() {
@@ -81,7 +120,7 @@
 			const result = await ConnectToDaemon();
 
 			if (result.includes('Error')) {
-				daemonStatus = 'Daemon is not installed or not running.';
+				daemonStatus = 'Free Mind needs a one-time permission to block websites.';
 				isLoading = false;
 				showInstallButton = true;
 				return false;
@@ -93,7 +132,7 @@
 			isBlocking = await CheckBlocking();
 			return true;
 		} catch (error) {
-			daemonStatus = 'Error connecting to daemon: ' + error;
+			daemonStatus = "Couldn't reach the Free Mind helper: " + error;
 			isLoading = false;
 			showInstallButton = true;
 			return false;
@@ -105,7 +144,7 @@
 			console.log('Starting installDaemon function');
 			isLoading = true;
 			showInstallButton = false;
-			daemonStatus = 'Installing daemon...';
+			daemonStatus = 'Waiting for permission… Enter your password in the system prompt.';
 
 			console.log('Checking if daemon is already installed...');
 			const installedCheck = await CheckDaemonInstalled();
@@ -113,14 +152,15 @@
 
 			// Installed but unreachable or outdated: reinstalling also restarts it.
 			if (installedCheck) {
-				daemonStatus = 'Daemon appears to be installed. Attempting to restart...';
+				daemonStatus = 'Updating the Free Mind helper… Enter your password in the system prompt.';
 			}
 
 			console.log('Calling InstallAndStartDaemon...');
 			const installResult = await InstallAndStartDaemon();
 
 			console.log('Installation result:', installResult);
-			daemonStatus = installResult;
+			if (installResult.includes('Error')) throw installResult;
+			daemonStatus = 'Finishing setup…';
 
 			console.log('Setting timeout to check daemon connection after installation...');
 			setTimeout(async () => {
@@ -129,12 +169,12 @@
 				console.log('Daemon connection check result:', connected);
 				if (connected) {
 					console.log('Daemon connected successfully after installation');
-					daemonStatus = 'Daemon installed and connected successfully';
+					daemonStatus = '';
 					isLoading = false;
 				} else {
 					console.error('Failed to connect to daemon after installation');
 					daemonStatus =
-						'Daemon installed but connection failed. The daemon may not be running. Please restart the application or try manual installation.';
+						"Setup finished, but Free Mind can't reach its helper. Try again, or restart Free Mind.";
 					showInstallButton = true;
 					isLoading = false;
 				}
@@ -142,7 +182,7 @@
 		} catch (error) {
 			console.error('Error installing daemon:', error);
 			console.error('Full error details:', JSON.stringify(error));
-			daemonStatus = 'Error installing daemon: ' + error;
+			daemonStatus = 'Setup did not finish: ' + String(error).replace(/^Error[^:]*:\s*/, '');
 			showInstallButton = true;
 			isLoading = false;
 		}
@@ -151,15 +191,15 @@
 	onMount(async () => {
 		console.log('Component mounted, initializing application...');
 		try {
-			const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-			isDark = detectInitialTheme(localStorage, prefersDark);
-			if (isDark) {
-				document.documentElement.classList.add('dark');
-			}
+			setTheme(loadThemePreference(localStorage));
+			// Follow OS changes while the preference is "system".
+			darkQuery().addEventListener('change', () => {
+				if (theme === 'system') setTheme('system');
+			});
 
 			try {
 				const json = await LoadBlockedWebsites();
-				websites = JSON.parse(json);
+				websites = collapseWww(JSON.parse(json));
 			} catch (e: unknown) {
 				console.error('Failed to load blocked websites:', e);
 			}
@@ -185,7 +225,7 @@
 		} catch (error) {
 			console.error('Error during initialization:', error);
 			console.error('Full error details:', JSON.stringify(error));
-			daemonStatus = 'Error initializing application: ' + error;
+			daemonStatus = 'Free Mind could not start: ' + error;
 			isLoading = false;
 			showInstallButton = true;
 		}
@@ -252,43 +292,43 @@
 </svelte:head>
 
 <div class="flex min-h-0 w-full flex-1 flex-col self-stretch">
-	{#if isLoading}
-		<!-- Minimal header during loading -->
-		<div class="flex w-full items-center justify-between border-b border-border/50 px-4 py-2.5">
-			<span class="text-base font-bold tracking-tight">Free Mind</span>
+	{#if isLoading || showInstallButton}
+		<div class="flex w-full items-center border-b border-border/50 px-5 py-3">
+			<span class="text-lg font-bold tracking-tight">Free Mind</span>
 		</div>
-		<div class="flex flex-1 items-center justify-center">
-			<p class="text-sm text-muted-foreground">{daemonStatus}</p>
-		</div>
-	{:else if showInstallButton}
-		<!-- Minimal header during install -->
-		<div class="flex w-full items-center justify-between border-b border-border/50 px-4 py-2.5">
-			<span class="text-base font-bold tracking-tight">Free Mind</span>
-		</div>
-		<div class="flex flex-1 flex-col items-center justify-center gap-3">
-			<p class="text-sm text-destructive">{daemonStatus}</p>
-			<button
-				class="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
-				onclick={installDaemon}
-			>
-				Install Daemon
-			</button>
+		<div class="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+			{#if isLoading}
+				<p class="text-sm text-muted-foreground" role="status">{daemonStatus}</p>
+			{:else}
+				<ShieldCheck class="size-12 text-primary" strokeWidth={1.5} />
+				<div class="flex max-w-md flex-col gap-2">
+					<h1 class="text-lg font-semibold">One-time setup</h1>
+					<p class="text-sm text-muted-foreground">
+						Free Mind blocks websites by editing a system file, which needs your permission once.
+						After that, you can start and stop blocking without entering your password.
+					</p>
+					{#if !daemonStatus.startsWith('Free Mind needs')}
+						<p class="text-sm text-destructive">{daemonStatus}</p>
+					{/if}
+				</div>
+				<button
+					class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+					onclick={installDaemon}
+				>
+					Grant permission
+				</button>
+			{/if}
 		</div>
 	{:else}
 		<Tabs value="home" class="flex min-h-0 w-full flex-1 flex-col">
-			<!-- Unified header + tabs bar -->
 			<div class="flex w-full items-center gap-4 border-b border-border/50 px-5 py-3">
-				<span class="shrink-0 text-lg font-bold tracking-tight">Free Mind</span>
+				<span class="w-24 shrink-0 text-lg font-bold tracking-tight">Free Mind</span>
 
 				<div class="flex flex-1 justify-center">
 					<TabsList variant="line" class="h-10">
 						<TabsTrigger value="home" class="h-8 gap-1.5 px-4 text-sm">
 							<House class="size-3.5" />
 							Home
-						</TabsTrigger>
-						<TabsTrigger value="modes" class="h-8 gap-1.5 px-4 text-sm">
-							<LayoutGrid class="size-3.5" />
-							Modes
 						</TabsTrigger>
 						<TabsTrigger value="websites" class="h-8 gap-1.5 px-4 text-sm">
 							<List class="size-3.5" />
@@ -301,160 +341,79 @@
 					</TabsList>
 				</div>
 
-				<!-- Status + Dark mode toggle -->
-				<div class="flex shrink-0 items-center gap-4">
-					<StatusDot {isBlocking} />
-					<div class="flex items-center gap-2">
-						<Sun
-							class="size-4 text-muted-foreground transition-opacity {isDark
-								? 'opacity-40'
-								: 'opacity-100'}"
-						/>
-						<Switch
-							checked={isDark}
-							onCheckedChange={toggleDark}
-							size="sm"
-							class="data-[state=checked]:bg-muted-foreground/40 data-[state=unchecked]:bg-muted-foreground/40"
-						/>
-						<Moon
-							class="size-4 text-muted-foreground transition-opacity {isDark
-								? 'opacity-100'
-								: 'opacity-40'}"
-						/>
-					</div>
-				</div>
+				<StatusDot {isBlocking} />
 			</div>
 
 			{#if daemonStatus}
-				<p class="mt-2 px-4 text-center text-xs text-muted-foreground">{daemonStatus}</p>
+				<p class="mt-2 px-4 text-center text-xs text-destructive">{daemonStatus}</p>
 			{/if}
 
-			<TabsContent value="home" class="flex flex-1 flex-col items-center justify-center gap-3 p-6">
-				<span class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-					{modeLabels[selectedMode]}
-				</span>
-				{#if selectedMode === 'free'}
-					<FreeMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-						{unblockWaiting}
-						bind:unblocking
-					/>
-				{:else if selectedMode === 'timer'}
-					<TimerMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-					/>
-				{:else if selectedMode === 'schedule'}
-					<ScheduleMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-					/>
-				{:else if selectedMode === 'pomodoro'}
-					<PomodoroMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-					/>
-				{/if}
-			</TabsContent>
-
-			<TabsContent value="modes" class="flex flex-1 flex-col items-center gap-6 p-6">
-				{#if isBlocking}
-					<Alert.Root variant="destructive" class="w-full max-w-sm">
-						<AlertCircleIcon />
-						<Alert.Title>Blocking is active</Alert.Title>
-						<Alert.Description>Stop blocking before switching modes.</Alert.Description>
-					</Alert.Root>
-				{/if}
-
-				<ToggleGroup.Root
-					type="single"
-					bind:value={selectedMode}
-					disabled={isBlocking}
-					class="flex-wrap justify-center"
-				>
-					<ToggleGroup.Item value="free">⛓️‍💥 Free</ToggleGroup.Item>
-					<ToggleGroup.Item value="timer">⏲️ Timer</ToggleGroup.Item>
-					<ToggleGroup.Item value="schedule">🗓️ Schedule</ToggleGroup.Item>
-					<ToggleGroup.Item value="pomodoro">⏰ Pomodoro</ToggleGroup.Item>
-				</ToggleGroup.Root>
+			<TabsContent
+				value="home"
+				class="flex flex-1 flex-col items-center gap-8 overflow-y-auto px-6 pt-12 pb-6"
+			>
+				<div class="flex flex-col items-center gap-2">
+					<div
+						role="radiogroup"
+						aria-label="Blocking mode"
+						class="inline-flex gap-1 rounded-lg bg-muted p-1"
+					>
+						{#each modes as mode (mode.value)}
+							<button
+								role="radio"
+								aria-checked={selectedMode === mode.value}
+								disabled={isBlocking}
+								onclick={() => (selectedMode = mode.value)}
+								class="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed
+									{selectedMode === mode.value
+									? 'bg-background text-foreground shadow-sm'
+									: 'text-muted-foreground enabled:hover:text-foreground disabled:opacity-50'}"
+							>
+								<mode.icon class="size-4" />
+								{mode.label}
+							</button>
+						{/each}
+					</div>
+					<p class="h-4 text-xs text-muted-foreground">
+						{#if isBlocking}Stop blocking to change the mode.{/if}
+					</p>
+				</div>
 
 				{#if selectedMode === 'free'}
 					<FreeMode
 						{isBlocking}
 						onStart={sendStartCommand}
 						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
 						{unblockWaiting}
 						bind:unblocking
 					/>
 				{:else if selectedMode === 'timer'}
-					<TimerMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-					/>
+					<TimerMode {isBlocking} onStart={sendStartCommand} onStop={sendStopCommand} />
 				{:else if selectedMode === 'schedule'}
-					<ScheduleMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-					/>
+					<ScheduleMode {isBlocking} onStart={sendStartCommand} onStop={sendStopCommand} />
 				{:else if selectedMode === 'pomodoro'}
-					<PomodoroMode
-						{isBlocking}
-						onStart={sendStartCommand}
-						onStop={sendStopCommand}
-						disabled={isLoading || showInstallButton}
-					/>
+					<PomodoroMode {isBlocking} onStart={sendStartCommand} onStop={sendStopCommand} />
 				{/if}
+
+				<p class="text-sm text-muted-foreground" role="status">
+					{#if isBlocking}
+						Blocking {enabledCount} website{enabledCount !== 1 ? 's' : ''}
+						{#if blockingSince !== null}{formatElapsed(now - blockingSince)}{/if}
+					{:else if enabledCount === 0}
+						No websites selected. Add some in the Websites tab.
+					{:else}
+						{enabledCount} website{enabledCount !== 1 ? 's' : ''} ready to block
+					{/if}
+				</p>
 			</TabsContent>
 
 			<TabsContent value="websites" class="flex min-h-0 flex-1 flex-col overflow-hidden">
 				<WebsitesTab bind:websites {isBlocking} />
 			</TabsContent>
 
-			<TabsContent value="settings" class="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
-				<div class="flex flex-col gap-1.5">
-					<p class="text-sm font-medium">Unblock waiting time</p>
-					<p class="text-xs text-muted-foreground">
-						Seconds to wait before blocking is disabled in Free Mode.
-					</p>
-					<div class="mt-1 flex items-center gap-2">
-						<input
-							type="number"
-							min="1"
-							max="300"
-							value={unblockWaiting}
-							oninput={(e) => {
-								const v = parseInt((e.target as HTMLInputElement).value, 10);
-								if (!isNaN(v) && v >= 1 && v <= 300) {
-									unblockWaiting = v;
-									SaveSettings({ unblockWaiting: v }).catch((err: unknown) =>
-										console.error('Failed to save settings:', err)
-									);
-								}
-							}}
-							class="w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-						/>
-						<span class="text-sm text-muted-foreground">seconds</span>
-					</div>
-				</div>
+			<TabsContent value="settings" class="flex flex-1 flex-col overflow-y-auto">
+				<SettingsTab {theme} onThemeChange={setTheme} bind:unblockWaiting />
 			</TabsContent>
 		</Tabs>
 	{/if}
 </div>
-
-<style>
-	/* Custom glow animation handled via Tailwind + inline shadow utilities */
-</style>

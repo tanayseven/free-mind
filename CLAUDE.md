@@ -22,6 +22,7 @@ Daemon (same binary with `--daemon`, root / LocalSystem)
 
 - **Frontend**: SvelteKit built as a static SPA (`@sveltejs/adapter-static`), served inside the native webview.
 - **Rust backend** (`src-tauri/`): exposes commands via `#[tauri::command]`. Blocking commands forward to the daemon. Website list and settings are kept in memory only.
+- **Tray** (`src-tauri/src/tray.rs`): status bar / system tray icon with a menu (blocking status, Start Blocking, Stop Blocking…, Open, Quit). Closing the window only hides it; the app keeps running until Quit. "Stop Blocking…" opens the window instead of stopping, so the unblock countdown can't be bypassed.
 - **Daemon** (`src-tauri/src/daemon.rs`): the app binary started with `--daemon` by launchd (macOS), systemd (Linux) or the Windows service manager. It is the only thing that writes the hosts file, and it re-validates every domain.
 
 ### Daemon install
@@ -58,13 +59,13 @@ Rust commands live in `src-tauri/src/lib.rs`:
 | `check_blocking` | Reads the hosts file for the Free Mind block (no IPC; polled every 100ms) |
 | `check_daemon_installed` | Whether the daemon binary exists at its install path |
 | `install_and_start_daemon` | One-time elevated install; waits for the daemon to answer |
-| `send_block_list(list)` | Validates and stores comma-separated domains in memory |
+| `send_block_list(list)` | Validates and stores comma-separated domains in memory, adding `www.` variants |
 | `start_blocking` | Sends the stored list to the daemon |
 | `stop_blocking` | Asks the daemon to remove the block; `""` on success |
-| `load_blocked_websites` | In-memory list, seeded with social / news / video defaults (stub) |
+| `load_blocked_websites` | In-memory list, seeded with social / news / video defaults, one row per site (stub) |
 | `save_blocked_websites(json)` | Stores the list in memory (stub) |
-| `load_settings` | `{ unblockWaiting: 30 }` (stub) |
-| `save_settings(settings)` | `true` (stub) |
+| `load_settings` | `{ unblockWaiting }`, default 30, kept in memory (stub) |
+| `save_settings(settings)` | Stores settings in memory (stub) |
 | `set_status_icon(status)` | Swaps tray + window icon: `inactive` / `blocked` / `unblocking` / `unblocked` |
 | `environment` | `{ platform, arch }` (platform mapped to Go's GOOS names) |
 
@@ -140,6 +141,20 @@ npm run test      # Vitest tests
 
 ---
 
+## Releasing
+
+`.github/workflows/release.yml` builds installers for macOS (Apple Silicon + Intel: `.dmg`), Linux (x64 + ARM64: `.deb`, `.rpm`, `.AppImage`) and Windows (x64: `.msi`, NSIS `.exe`). It runs the Rust tests on each platform first.
+
+1. Bump `version` in `src-tauri/tauri.conf.json` (and `src-tauri/Cargo.toml`), and merge to `main`.
+2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`. The tag must equal `v` + the app version, or the workflow fails.
+3. The workflow creates a **draft** GitHub release with all installers attached. Review it and publish.
+
+Run it manually from Actions → Release → Run workflow to build without releasing (installers are uploaded as workflow artifacts).
+
+Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first launch. Signing needs Apple Developer / Windows code-signing certificates added as repository secrets.
+
+---
+
 ## Key Files
 
 | File | Role |
@@ -150,13 +165,16 @@ npm run test      # Vitest tests
 | `src-tauri/src/ipc.rs` | App ↔ daemon message types and client |
 | `src-tauri/src/install.rs` | One-time elevated daemon install per OS |
 | `src-tauri/src/hosts.rs` | Hosts file block editing + DNS flush |
-| `src-tauri/src/tray.rs` | Tray icon + window icon reflecting blocking status |
+| `src-tauri/src/tray.rs` | Status bar / tray icon and menu; icon follows blocking status |
 | `scripts/generate-icons.sh` | Crops `frontend/static/*.svg` to a shared square and renders app, tray (`src-tauri/icons/status/`) and favicon icons |
 | `src-tauri/Cargo.toml` | Rust crate + Tauri dependencies |
 | `src-tauri/tauri.conf.json` | Tauri config (window, bundle, build hooks) |
 | `src-tauri/capabilities/default.json` | Permissions for the main window |
 | `frontend/src/lib/api.ts` | Typed Tauri command bindings |
-| `frontend/src/routes/+page.svelte` | Main UI (tabs: Home / Modes / Websites / Settings) |
+| `frontend/src/routes/+page.svelte` | Main UI (tabs: Home with mode picker / Websites / Settings) |
+| `frontend/src/lib/components/WebsitesTab.svelte` | Website list grouped by category (one row per site; `www.` is added when blocking) |
+| `frontend/src/lib/components/SettingsTab.svelte` | Theme (System / Light / Dark), unblock wait, About |
+| `frontend/src/lib/domains.ts` | Domain normalization and bulk-paste parsing |
 | `frontend/src/routes/+layout.ts` | SPA config (`ssr = false`, `prerender = true`) |
 | `frontend/svelte.config.js` | `adapter-static` with SPA fallback |
 | `.mise.toml` | Toolchain versions |

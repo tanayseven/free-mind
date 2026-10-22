@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { applyTheme, detectInitialTheme } from './theme';
+import { applyTheme, loadThemePreference, resolveDark } from './theme';
 import type { ClassList, Storage } from './theme';
 
 // Minimal in-memory stubs — no DOM required
@@ -34,66 +34,52 @@ describe('applyTheme', () => {
 		storage = makeStorage();
 	});
 
-	it('adds "dark" class when isDark is true', () => {
-		applyTheme(true, classList, storage);
+	it('adds "dark" class for the dark preference', () => {
+		applyTheme('dark', false, classList, storage);
 		expect(classList.classes.has('dark')).toBe(true);
 	});
 
-	it('saves "dark" to storage when isDark is true', () => {
-		applyTheme(true, classList, storage);
-		expect(storage.data['theme']).toBe('dark');
-	});
-
-	it('removes "dark" class when isDark is false', () => {
+	it('removes "dark" class for the light preference', () => {
 		classList.add('dark'); // start in dark mode
-		applyTheme(false, classList, storage);
+		applyTheme('light', true, classList, storage);
 		expect(classList.classes.has('dark')).toBe(false);
 	});
 
-	it('saves "light" to storage when isDark is false', () => {
-		applyTheme(false, classList, storage);
-		expect(storage.data['theme']).toBe('light');
-	});
-
-	it('does not add "dark" class when isDark is false', () => {
-		applyTheme(false, classList, storage);
-		expect(classList.classes.has('dark')).toBe(false);
-	});
-
-	it('does not remove "dark" class when isDark is true', () => {
-		applyTheme(true, classList, storage);
+	it('follows the OS for the system preference', () => {
+		applyTheme('system', true, classList, storage);
 		expect(classList.classes.has('dark')).toBe(true);
+		applyTheme('system', false, classList, storage);
+		expect(classList.classes.has('dark')).toBe(false);
+	});
+
+	it('saves the preference to storage', () => {
+		applyTheme('system', true, classList, storage);
+		expect(storage.data['theme']).toBe('system');
+		applyTheme('light', true, classList, storage);
+		expect(storage.data['theme']).toBe('light');
 	});
 });
 
-describe('detectInitialTheme', () => {
-	it('returns true when storage has "dark"', () => {
-		const storage = makeStorage({ theme: 'dark' });
-		expect(detectInitialTheme(storage, false)).toBe(true);
+describe('loadThemePreference', () => {
+	it('returns the saved light or dark preference', () => {
+		expect(loadThemePreference(makeStorage({ theme: 'dark' }))).toBe('dark');
+		expect(loadThemePreference(makeStorage({ theme: 'light' }))).toBe('light');
 	});
 
-	it('returns false when storage has "light"', () => {
-		const storage = makeStorage({ theme: 'light' });
-		expect(detectInitialTheme(storage, true)).toBe(false);
+	it('defaults to system when nothing or something unknown is saved', () => {
+		expect(loadThemePreference(makeStorage())).toBe('system');
+		expect(loadThemePreference(makeStorage({ theme: 'sepia' }))).toBe('system');
+	});
+});
+
+describe('resolveDark', () => {
+	it('explicit preferences ignore the OS', () => {
+		expect(resolveDark('dark', false)).toBe(true);
+		expect(resolveDark('light', true)).toBe(false);
 	});
 
-	it('returns true when no storage entry and OS prefers dark', () => {
-		const storage = makeStorage();
-		expect(detectInitialTheme(storage, true)).toBe(true);
-	});
-
-	it('returns false when no storage entry and OS prefers light', () => {
-		const storage = makeStorage();
-		expect(detectInitialTheme(storage, false)).toBe(false);
-	});
-
-	it('storage "dark" takes priority over OS light preference', () => {
-		const storage = makeStorage({ theme: 'dark' });
-		expect(detectInitialTheme(storage, false)).toBe(true);
-	});
-
-	it('storage "light" takes priority over OS dark preference', () => {
-		const storage = makeStorage({ theme: 'light' });
-		expect(detectInitialTheme(storage, true)).toBe(false);
+	it('system follows the OS', () => {
+		expect(resolveDark('system', true)).toBe(true);
+		expect(resolveDark('system', false)).toBe(false);
 	});
 });
