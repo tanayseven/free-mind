@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Switch } from '@/components/ui/switch';
+	import BlockButton from './BlockButton.svelte';
 	import UnblockCountdown from './UnblockCountdown.svelte';
 
 	let {
@@ -53,10 +53,10 @@
 {/if}
 
 <div class="flex w-full max-w-sm flex-col items-center gap-5">
-	<Switch
-		checked={switchIsOn}
-		onCheckedChange={(checked) => (checked ? onStart() : handleSwitchOff())}
+	<p class="text-sm text-muted-foreground">Block until you choose to stop.</p>
+	<BlockButton
+		isBlocking={switchIsOn}
 		{disabled}
-		size="sm"
+		onclick={() => (switchIsOn ? handleSwitchOff() : onStart())}
 	/>
 </div>

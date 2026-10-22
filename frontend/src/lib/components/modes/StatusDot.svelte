@@ -2,26 +2,21 @@
 	let { isBlocking }: { isBlocking: boolean } = $props();
 </script>
 
-<div class="flex items-center gap-2.5">
-	{#if isBlocking}
-		<span class="relative flex size-4">
+<!-- Fixed width so the header doesn't shift when the label changes. -->
+<div class="flex w-24 items-center justify-end gap-2" role="status">
+	<span class="relative flex size-2.5">
+		{#if isBlocking}
 			<span
-				class="absolute -inset-1 inline-flex animate-ping rounded-full bg-red-500/25 [animation-duration:1.6s]"
+				class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60 [animation-duration:2s]"
 			></span>
-			<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500/70"
-			></span>
-			<span
-				class="relative inline-flex size-4 animate-pulse rounded-full bg-red-500 shadow-[0_0_16px_6px_rgba(239,68,68,0.65)]"
-			></span>
-		</span>
-	{:else}
-		<span class="relative flex size-4">
-			<span
-				class="inline-flex size-4 rounded-full bg-green-500 shadow-[0_0_10px_3px_rgba(34,197,94,0.4)]"
-			></span>
-		</span>
-	{/if}
-	<span class="text-sm font-medium {isBlocking ? 'text-red-500' : 'text-green-500'}">
-		{isBlocking ? 'Blocking' : 'Not blocking'}
+		{/if}
+		<span
+			class="relative inline-flex size-2.5 rounded-full {isBlocking
+				? 'bg-primary'
+				: 'bg-muted-foreground/40'}"
+		></span>
+	</span>
+	<span class="text-sm font-medium {isBlocking ? 'text-primary' : 'text-muted-foreground'}">
+		{isBlocking ? 'Focusing' : 'Idle'}
 	</span>
 </div>

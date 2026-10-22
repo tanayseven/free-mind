@@ -7,7 +7,7 @@ describe('/+page.svelte', () => {
 	it('should render app title', async () => {
 		render(Page);
 
-		const title = page.getByText('Free Mind');
+		const title = page.getByText('Free Mind', { exact: true });
 		await expect.element(title).toBeInTheDocument();
 	});
 });

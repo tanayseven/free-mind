@@ -8,23 +8,37 @@ export interface Storage {
 	setItem(key: string, value: string): void;
 }
 
+/** `system` follows the OS colour-scheme preference. */
+export type ThemePreference = 'system' | 'light' | 'dark';
+
 /**
- * Applies or removes the dark theme, persisting the choice to storage.
+ * Reads the saved theme preference, defaulting to `system`.
  */
-export function applyTheme(isDark: boolean, classList: ClassList, storage: Storage): void {
-	if (isDark) {
-		classList.add('dark');
-		storage.setItem('theme', 'dark');
-	} else {
-		classList.remove('dark');
-		storage.setItem('theme', 'light');
-	}
+export function loadThemePreference(storage: Storage): ThemePreference {
+	const saved = storage.getItem('theme');
+	return saved === 'light' || saved === 'dark' ? saved : 'system';
 }
 
 /**
- * Detects the initial theme from storage or the OS colour-scheme preference.
+ * Whether the dark theme should be shown for a preference.
  */
-export function detectInitialTheme(storage: Storage, prefersDark: boolean): boolean {
-	const saved = storage.getItem('theme');
-	return saved === 'dark' || (!saved && prefersDark);
+export function resolveDark(preference: ThemePreference, prefersDark: boolean): boolean {
+	return preference === 'dark' || (preference === 'system' && prefersDark);
+}
+
+/**
+ * Applies the dark theme or removes it, saving the preference to storage.
+ */
+export function applyTheme(
+	preference: ThemePreference,
+	prefersDark: boolean,
+	classList: ClassList,
+	storage: Storage
+): void {
+	if (resolveDark(preference, prefersDark)) {
+		classList.add('dark');
+	} else {
+		classList.remove('dark');
+	}
+	storage.setItem('theme', preference);
 }

@@ -17,6 +17,9 @@ static BLOCK_LIST: Mutex<Vec<String>> = Mutex::new(Vec::new());
 // In-memory website list (JSON); `None` until the frontend saves its first edit.
 static WEBSITES: Mutex<Option<String>> = Mutex::new(None);
 
+// In-memory unblock wait in seconds (stub until settings are persisted).
+static UNBLOCK_WAITING: Mutex<u32> = Mutex::new(30);
+
 const DEFAULT_WEBSITES: &[(&str, &[&str])] = &[
     (
         "Social",
@@ -76,27 +79,37 @@ struct WebsiteEntry {
     enabled: bool,
 }
 
-/// Builds the default list, adding a `www.` variant for apex domains since the
-/// hosts file matches exact hostnames.
+/// The default list, one entry per site; `with_www` adds the `www.` variants
+/// when blocking.
 fn default_websites() -> Vec<WebsiteEntry> {
     let mut entries = Vec::new();
     for (category, domains) in DEFAULT_WEBSITES {
         for domain in *domains {
-            let mut hosts = vec![domain.to_string()];
-            if domain.matches('.').count() == 1 {
-                hosts.push(format!("www.{domain}"));
-            }
-            for host in hosts {
-                entries.push(WebsiteEntry {
-                    id: (entries.len() + 1).to_string(),
-                    domain: host,
-                    category: category.to_string(),
-                    enabled: true,
-                });
-            }
+            entries.push(WebsiteEntry {
+                id: (entries.len() + 1).to_string(),
+                domain: domain.to_string(),
+                category: category.to_string(),
+                enabled: true,
+            });
         }
     }
     entries
+}
+
+/// Adds a `www.` variant for every domain, since the hosts file matches exact
+/// hostnames and the website list keeps one row per site. Keeps order and
+/// drops duplicates.
+fn with_www(domains: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for domain in domains {
+        let www = (!domain.starts_with("www.")).then(|| format!("www.{domain}"));
+        for host in std::iter::once(domain).chain(www) {
+            if hosts::is_valid_domain(&host) && !out.contains(&host) {
+                out.push(host);
+            }
+        }
+    }
+    out
 }
 
 #[derive(Serialize, Deserialize)]
@@ -155,7 +168,7 @@ fn send_block_list(list: String) -> bool {
     if !domains.iter().all(|d| hosts::is_valid_domain(d)) {
         return false;
     }
-    *BLOCK_LIST.lock().unwrap() = domains;
+    *BLOCK_LIST.lock().unwrap() = with_www(domains);
     true
 }
 
@@ -192,13 +205,13 @@ fn save_blocked_websites(json: String) -> bool {
 #[tauri::command]
 fn load_settings() -> AppSettings {
     AppSettings {
-        unblock_waiting: 30,
+        unblock_waiting: *UNBLOCK_WAITING.lock().unwrap(),
     }
 }
 
 #[tauri::command]
 fn save_settings(settings: AppSettings) -> bool {
-    let _ = settings;
+    *UNBLOCK_WAITING.lock().unwrap() = settings.unblock_waiting;
     true
 }
 
@@ -215,17 +228,18 @@ fn environment() -> Environment {
     }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Enabled domains from the current website list, as the UI would send them.
 fn enabled_domains() -> Vec<String> {
-    serde_json::from_str::<Vec<WebsiteEntry>>(&load_blocked_websites())
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|w| w.enabled)
-        .map(|w| w.domain)
-        .collect()
+    with_www(
+        serde_json::from_str::<Vec<WebsiteEntry>>(&load_blocked_websites())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|w| w.enabled)
+            .map(|w| w.domain),
+    )
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -263,4 +277,31 @@ pub fn run() {
                 tray::show_main_window(_app);
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_www_adds_variants_once() {
+        let domains = ["x.com", "www.y.com", "x.com", "bbc.co.uk"].map(String::from);
+        assert_eq!(
+            with_www(domains),
+            [
+                "x.com",
+                "www.x.com",
+                "www.y.com",
+                "bbc.co.uk",
+                "www.bbc.co.uk"
+            ]
+        );
+    }
+
+    #[test]
+    fn default_websites_have_one_row_per_site() {
+        assert!(default_websites()
+            .iter()
+            .all(|w| !w.domain.starts_with("www.")));
+    }
 }

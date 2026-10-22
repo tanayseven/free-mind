@@ -59,13 +59,13 @@ Rust commands live in `src-tauri/src/lib.rs`:
 | `check_blocking` | Reads the hosts file for the Free Mind block (no IPC; polled every 100ms) |
 | `check_daemon_installed` | Whether the daemon binary exists at its install path |
 | `install_and_start_daemon` | One-time elevated install; waits for the daemon to answer |
-| `send_block_list(list)` | Validates and stores comma-separated domains in memory |
+| `send_block_list(list)` | Validates and stores comma-separated domains in memory, adding `www.` variants |
 | `start_blocking` | Sends the stored list to the daemon |
 | `stop_blocking` | Asks the daemon to remove the block; `""` on success |
-| `load_blocked_websites` | In-memory list, seeded with social / news / video defaults (stub) |
+| `load_blocked_websites` | In-memory list, seeded with social / news / video defaults, one row per site (stub) |
 | `save_blocked_websites(json)` | Stores the list in memory (stub) |
-| `load_settings` | `{ unblockWaiting: 30 }` (stub) |
-| `save_settings(settings)` | `true` (stub) |
+| `load_settings` | `{ unblockWaiting }`, default 30, kept in memory (stub) |
+| `save_settings(settings)` | Stores settings in memory (stub) |
 | `environment` | `{ platform, arch }` (platform mapped to Go's GOOS names) |
 
 ---
@@ -157,7 +157,10 @@ Builds are **unsigned**: macOS Gatekeeper and Windows SmartScreen warn on first 
 | `src-tauri/tauri.conf.json` | Tauri config (window, bundle, build hooks) |
 | `src-tauri/capabilities/default.json` | Permissions for the main window |
 | `frontend/src/lib/api.ts` | Typed Tauri command bindings |
-| `frontend/src/routes/+page.svelte` | Main UI (tabs: Home / Modes / Websites / Settings) |
+| `frontend/src/routes/+page.svelte` | Main UI (tabs: Home with mode picker / Websites / Settings) |
+| `frontend/src/lib/components/WebsitesTab.svelte` | Website list grouped by category (one row per site; `www.` is added when blocking) |
+| `frontend/src/lib/components/SettingsTab.svelte` | Theme (System / Light / Dark), unblock wait, About |
+| `frontend/src/lib/domains.ts` | Domain normalization and bulk-paste parsing |
 | `frontend/src/routes/+layout.ts` | SPA config (`ssr = false`, `prerender = true`) |
 | `frontend/svelte.config.js` | `adapter-static` with SPA fallback |
 | `.mise.toml` | Toolchain versions |
