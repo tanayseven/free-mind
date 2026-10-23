@@ -1,0 +1,30 @@
+# Solus package recipe (ypkg). The release workflow fills in {{VERSION}} and
+# {{SHA256_SOURCE}}. Submit through the Solus packages repository.
+name       : free-mind
+version    : {{VERSION}}
+release    : 1
+source     :
+    - https://github.com/tanayseven/free-mind/archive/refs/tags/v{{VERSION}}.tar.gz : {{SHA256_SOURCE}}
+homepage   : https://github.com/tanayseven/free-mind
+license    : Distributable
+component  : desktop
+summary    : Block distracting websites and stay focused
+description: |
+    Free Mind blocks distracting websites by editing the system hosts file through a small privileged helper, installed once with a single admin prompt. It works offline and collects no data.
+networking : yes
+builddeps  :
+    - pkgconfig(ayatana-appindicator3-0.1)
+    - pkgconfig(gtk+-3.0)
+    - pkgconfig(librsvg-2.0)
+    - pkgconfig(openssl)
+    - pkgconfig(webkit2gtk-4.1)
+    - nodejs
+    - rust
+rundeps    :
+    - polkit
+build      : |
+    npm --prefix frontend ci
+    npm --prefix frontend run build
+    cargo build --release --locked --manifest-path src-tauri/Cargo.toml --features tauri/custom-protocol
+install    : |
+    sh packaging/install-tree.sh src-tauri/target/release/free-mind $installdir /usr

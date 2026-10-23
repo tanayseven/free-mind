@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chocolatey package wrapping the release MSIs. The release workflow fills
+     in {{VERSION}} and the checksums in tools/, then runs `choco pack`. -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>free-mind</id>
+    <version>{{VERSION}}</version>
+    <title>Free Mind</title>
+    <authors>Tanay PrabhuDesai</authors>
+    <owners>Tanay PrabhuDesai</owners>
+    <projectUrl>https://github.com/tanayseven/free-mind</projectUrl>
+    <projectSourceUrl>https://github.com/tanayseven/free-mind</projectSourceUrl>
+    <packageSourceUrl>https://github.com/tanayseven/free-mind/tree/main/packaging/chocolatey</packageSourceUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>Block distracting websites and stay focused</summary>
+    <description>Free Mind blocks distracting websites by editing the system hosts file through a small privileged helper, installed once with a single admin prompt. It works offline and collects no data.</description>
+    <tags>focus productivity website-blocker</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

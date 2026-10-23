@@ -1,0 +1,37 @@
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+#
+# MacPorts port installing the universal .app from the release. The release
+# workflow fills in {{VERSION}}, {{SHA256_APP_ZIP}} and {{SIZE_APP_ZIP}}.
+
+PortSystem          1.0
+PortGroup           github 1.0
+
+github.setup        tanayseven free-mind {{VERSION}} v
+github.tarball_from releases
+revision            0
+
+name                free-mind
+categories          sysutils aqua
+platforms           {darwin >= 19}
+supported_archs     arm64 x86_64
+license             Restrictive/Distributable
+maintainers         {@tanayseven}
+
+description         Block distracting websites and stay focused
+long_description    Free Mind blocks distracting websites by editing the \
+                    system hosts file through a small privileged helper, \
+                    installed once with a single admin prompt.
+
+distname            ${name}_${version}_universal.app
+use_zip             yes
+extract.mkdir       yes
+
+checksums           sha256  {{SHA256_APP_ZIP}} \
+                    size    {{SIZE_APP_ZIP}}
+
+use_configure       no
+build {}
+
+destroot {
+    copy "${worksrcpath}/Free Mind.app" ${destroot}${applications_dir}
+}

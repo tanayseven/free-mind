@@ -1,0 +1,3 @@
+Free Mind blocks distracting websites by editing the system hosts file
+through a small privileged helper, installed once with a single admin
+prompt (via polkit). It works offline and collects no data.

@@ -1,0 +1,40 @@
+# Alpine (musl) package, built from source. The release workflow replaces
+# {{VERSION}} and puts a `git archive` tarball named free-mind-<version>.tar.gz
+# next to this file, then runs `abuild checksum && abuild -r`.
+pkgname=free-mind
+pkgver={{VERSION}}
+pkgrel=0
+pkgdesc="Block distracting websites and stay focused"
+url="https://github.com/tanayseven/free-mind"
+arch="x86_64 aarch64"
+license="custom"
+# polkit provides pkexec, which the one-time daemon install uses. Shared
+# libraries (webkit2gtk, gtk, appindicator) are picked up automatically.
+depends="polkit"
+makedepends="
+	cargo
+	gtk+3.0-dev
+	libayatana-appindicator-dev
+	librsvg-dev
+	nodejs
+	npm
+	openssl-dev
+	webkit2gtk-4.1-dev
+	xdotool-dev
+	"
+source="$pkgname-$pkgver.tar.gz"
+# npm and cargo download dependencies; the Rust tests run in the release
+# workflow's build job instead.
+options="net !check"
+
+build() {
+	npm --prefix frontend ci
+	npm --prefix frontend run build
+	cargo build --release --locked \
+		--manifest-path src-tauri/Cargo.toml \
+		--features tauri/custom-protocol
+}
+
+package() {
+	sh packaging/install-tree.sh src-tauri/target/release/free-mind "$pkgdir" /usr
+}

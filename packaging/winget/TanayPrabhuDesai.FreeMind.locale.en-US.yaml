@@ -1,0 +1,16 @@
+PackageIdentifier: TanayPrabhuDesai.FreeMind
+PackageVersion: {{VERSION}}
+PackageLocale: en-US
+Publisher: Tanay PrabhuDesai
+PublisherUrl: https://github.com/tanayseven
+PackageName: Free Mind
+PackageUrl: https://github.com/tanayseven/free-mind
+License: Proprietary
+ShortDescription: Block distracting websites and stay focused
+Description: Free Mind blocks distracting websites by editing the system hosts file through a small privileged helper, installed once with a single admin prompt. It works offline and collects no data.
+Tags:
+  - focus
+  - productivity
+  - website-blocker
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

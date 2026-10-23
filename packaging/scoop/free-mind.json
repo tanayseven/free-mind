@@ -1,0 +1,30 @@
+{
+    "version": "{{VERSION}}",
+    "description": "Block distracting websites and stay focused",
+    "homepage": "https://github.com/tanayseven/free-mind",
+    "license": "Proprietary",
+    "notes": "Needs the WebView2 runtime, included with Windows 10 and 11.",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/tanayseven/free-mind/releases/download/v{{VERSION}}/free-mind_{{VERSION}}_x64_portable.zip",
+            "hash": "{{SHA256_PORTABLE_X64}}"
+        },
+        "arm64": {
+            "url": "https://github.com/tanayseven/free-mind/releases/download/v{{VERSION}}/free-mind_{{VERSION}}_arm64_portable.zip",
+            "hash": "{{SHA256_PORTABLE_ARM64}}"
+        }
+    },
+    "bin": "free-mind.exe",
+    "shortcuts": [["free-mind.exe", "Free Mind"]],
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/tanayseven/free-mind/releases/download/v$version/free-mind_$version_x64_portable.zip"
+            },
+            "arm64": {
+                "url": "https://github.com/tanayseven/free-mind/releases/download/v$version/free-mind_$version_arm64_portable.zip"
+            }
+        }
+    }
+}

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Template for the MSIX package. The release workflow replaces {{VERSION}}
-     (four parts, e.g. 0.1.0.0) and {{PUBLISHER}}, which must match the signing
-     certificate subject or the Partner Center publisher ID. -->
+     (four parts, e.g. 0.1.0.0), {{ARCH}} (x64 or arm64) and {{PUBLISHER}},
+     which must match the signing certificate subject or the Partner Center
+     publisher ID. -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
@@ -12,7 +13,7 @@
     Name="tech.tanay.free-mind"
     Publisher="{{PUBLISHER}}"
     Version="{{VERSION}}"
-    ProcessorArchitecture="x64" />
+    ProcessorArchitecture="{{ARCH}}" />
 
   <Properties>
     <DisplayName>Free Mind</DisplayName>

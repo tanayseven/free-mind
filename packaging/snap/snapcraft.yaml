@@ -1,0 +1,38 @@
+# Snap repackaged from the .deb that `tauri build` produces. The release
+# workflow copies the deb next to this file as free-mind.deb and replaces
+# {{VERSION}}.
+#
+# Classic confinement because the one-time daemon install runs pkexec, writes
+# to /usr/local and /etc/systemd and the daemon edits /etc/hosts; a strictly
+# confined snap can do none of that. Classic snaps need a manual review before
+# the Snap Store accepts them.
+name: free-mind
+base: core22
+version: '{{VERSION}}'
+summary: Block distracting websites and stay focused
+description: |
+  Free Mind blocks distracting websites by editing the system hosts file
+  through a small privileged helper, installed once with a single admin
+  prompt. It works offline and collects no data.
+license: Proprietary
+grade: stable
+confinement: classic
+
+apps:
+  free-mind:
+    command: usr/bin/free-mind
+    desktop: usr/share/applications/Free Mind.desktop
+
+parts:
+  free-mind:
+    plugin: dump
+    source: free-mind.deb
+    source-type: deb
+    # Points the binary at the libraries staged in the snap, since classic
+    # snaps otherwise load the host's.
+    build-attributes: [enable-patchelf]
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - librsvg2-common
