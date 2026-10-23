@@ -21,7 +21,7 @@ cd "$out"
 xbps-create \
 	--architecture "$arch" \
 	--pkgver "free-mind-${version}_1" \
-	--short-desc "Block distracting websites and stay focused" \
+	--desc "Block distracting websites and stay focused" \
 	--homepage "https://github.com/tanayseven/free-mind" \
 	--license "custom:unknown" \
 	--maintainer "Tanay PrabhuDesai <tanayseven@users.noreply.github.com>" \

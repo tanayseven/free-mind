@@ -489,13 +489,15 @@ jobs:
           # arches are packaged here; the x64 package is then installed to
           # check its libraries resolve.
           docker run --rm -v "$PWD:/src" -w /src ghcr.io/void-linux/void-glibc-full:latest sh -euc "
-            xbps-install -Syu xbps && xbps-install -Syu bsdtar
+            xbps-install -Syu xbps && xbps-install -Syu bsdtar bash
             for arch in x86_64 aarch64; do
               packaging/void/package.sh free-mind-\$arch.deb $version \$arch dist
             done
             xbps-rindex -a /src/dist/*.x86_64.xbps
             xbps-install -y -R /src/dist free-mind
-            if ldd /usr/bin/free-mind | grep 'not found'; then exit 1; fi
+            # ldd is a bash script; save its output so a failure stops the build.
+            ldd /usr/bin/free-mind >/tmp/libs
+            if grep 'not found' /tmp/libs; then exit 1; fi
             rm -r /src/dist/*-repodata
           "
           ls -l dist
