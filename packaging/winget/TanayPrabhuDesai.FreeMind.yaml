@@ -1,0 +1,7 @@
+# Submit the three files in this directory to microsoft/winget-pkgs under
+# manifests/t/TanayPrabhuDesai/FreeMind/<version>/.
+PackageIdentifier: TanayPrabhuDesai.FreeMind
+PackageVersion: {{VERSION}}
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0

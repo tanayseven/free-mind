@@ -6,8 +6,13 @@ name: Release
 # build without releasing; installers are then uploaded as workflow artifacts.
 #
 # `build` produces everything Tauri can bundle (DMG, DEB, RPM, AppImage, MSI,
-# NSIS EXE). `arch` and `msix` then repackage its output into formats Tauri
-# doesn't support and add them to the same draft release.
+# NSIS EXE) plus the .app zip, portable Windows zip and Linux tarball. The
+# other jobs repackage its output (or build from source) into formats Tauri
+# doesn't support and add them to the same draft release. `manifests` fills
+# in the package-manager recipes in packaging/ for submitting by hand.
+#
+# Signing is optional: each signing secret (see CLAUDE.md) is used only when
+# it's set, so builds without them are unsigned.
 
 on:
   push:
@@ -26,23 +31,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS (Apple Silicon)
+          # One universal build covers Apple Silicon and Intel.
+          - name: macOS (universal)
             os: macos-latest
-            target: aarch64-apple-darwin
-          - name: macOS (Intel)
-            os: macos-latest
-            target: x86_64-apple-darwin
+            target: universal-apple-darwin
+            rust_targets: aarch64-apple-darwin x86_64-apple-darwin
+            test_target: aarch64-apple-darwin
+            arch: universal
           # 22.04 rather than latest: binaries built against an older glibc
           # run on more distros.
           - name: Linux (x64)
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            arch: x86_64
           - name: Linux (ARM64)
             os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
+            arch: aarch64
           - name: Windows (x64)
             os: windows-latest
             target: x86_64-pc-windows-msvc
+            arch: x64
+          - name: Windows (ARM64)
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            arch: arm64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -74,8 +87,9 @@ jobs:
 
       - uses: jdx/mise-action@v4
 
-      - name: Add Rust target
-        run: rustup target add ${{ matrix.target }}
+      - name: Add Rust targets
+        shell: bash
+        run: rustup target add ${{ matrix.rust_targets || matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -107,8 +121,60 @@ jobs:
       # Runs the hosts/IPC/daemon tests natively on every platform, which is
       # the only place the Windows and Linux code paths get exercised.
       - name: Test Rust
-        if: matrix.target != 'x86_64-apple-darwin'
-        run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }}
+        run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.test_target || matrix.target }}
+
+      # Exports only the secrets that are set, so unsigned builds still work.
+      # Tauri reads the APPLE_* and TAURI_SIGNING_* variables itself.
+      - name: Load signing secrets
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+            APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID \
+            TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+            if [ -n "${!name}" ]; then
+              printf '%s<<EOF_SECRET\n%s\nEOF_SECRET\n' "$name" "${!name}" >> "$GITHUB_ENV"
+            fi
+          done
+          # Tauri's --config takes a file; forward slashes keep the Windows
+          # path intact through tauri-action's argument parsing.
+          tmp=$(cygpath -m "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")
+          args=""
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            # Updater bundles (.app.tar.gz, .AppImage.tar.gz, .sig files).
+            echo '{"bundle":{"createUpdaterArtifacts":true}}' > "$tmp/tauri-updater.json"
+            args="$args --config $tmp/tauri-updater.json"
+          fi
+          echo "TAURI_EXTRA_ARGS=$args" >> "$GITHUB_ENV"
+
+      - name: Import Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) { exit 0 }
+          $pfx = Join-Path $env:RUNNER_TEMP cert.pfx
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          Remove-Item $pfx
+          $config = (Join-Path $env:RUNNER_TEMP tauri-windows-signing.json) -replace '\\', '/'
+          @{ bundle = @{ windows = @{
+            certificateThumbprint = $cert.Thumbprint
+            digestAlgorithm = 'sha256'
+            timestampUrl = 'http://timestamp.digicert.com'
+          } } } | ConvertTo-Json -Depth 5 | Set-Content $config
+          "TAURI_EXTRA_ARGS=$env:TAURI_EXTRA_ARGS --config $config" >> $env:GITHUB_ENV
 
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
@@ -117,13 +183,45 @@ jobs:
         with:
           # Use the Tauri CLI installed by mise.
           tauriScript: tauri
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} ${{ env.TAURI_EXTRA_ARGS }}
           # Empty on manual runs, so tauri-action only builds.
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: Free Mind ${{ github.ref_name }}
           releaseBody: See the assets below to download Free Mind for your platform.
           releaseDraft: true
           prerelease: false
+
+      # Formats made straight from the build: the bare .app (MacPorts), a
+      # portable Windows zip (Scoop) and a Linux tarball for any glibc distro.
+      - name: Package extra formats
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          release=src-tauri/target/${{ matrix.target }}/release
+          mkdir -p dist
+          case "${{ runner.os }}" in
+            macOS)
+              ditto -c -k --keepParent "$release/bundle/macos/Free Mind.app" \
+                "dist/free-mind_${version}_${{ matrix.arch }}.app.zip"
+              ;;
+            Windows)
+              pwsh -NoProfile -Command "Compress-Archive -Path '$release/free-mind.exe' \
+                -DestinationPath 'dist/free-mind_${version}_${{ matrix.arch }}_portable.zip'"
+              ;;
+            Linux)
+              stage=$(mktemp -d)
+              dpkg-deb -x "$release"/bundle/deb/*.deb "$stage"
+              tar -czf "dist/free-mind_${version}_${{ matrix.arch }}.tar.gz" -C "$stage/usr" .
+              ;;
+          esac
+          ls -l dist
+
+      - name: Attach extra formats to release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
@@ -137,9 +235,84 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
             src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
             src-tauri/target/${{ matrix.target }}/release/free-mind.exe
+            dist/*
           if-no-files-found: error
 
-  # Arch Linux packages (.pkg.tar.gz), repackaged from the Linux .debs.
+  # macOS .pkg that installs the daemon during installation, so the app
+  # doesn't show its own admin prompt on first launch.
+  macos-pkg:
+    name: macOS .pkg (universal)
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: free-mind-universal-apple-darwin
+          path: artifacts
+
+      - name: Build .pkg
+        env:
+          MACOS_INSTALLER_CERT: ${{ secrets.MACOS_INSTALLER_CERT }}
+          MACOS_INSTALLER_CERT_PASSWORD: ${{ secrets.MACOS_INSTALLER_CERT_PASSWORD }}
+          MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          work=$(mktemp -d)
+          mkdir -p "$work/root" "$work/scripts" dist
+          ditto -x -k "$(find artifacts -name "free-mind_${version}_universal.app.zip")" "$work/root"
+          cp packaging/macos-pkg/postinstall "$work/scripts/"
+
+          # Install to /Applications even if another copy exists elsewhere.
+          pkgbuild --analyze --root "$work/root" "$work/components.plist"
+          plutil -replace 0.BundleIsRelocatable -bool NO "$work/components.plist"
+          pkgbuild --root "$work/root" --component-plist "$work/components.plist" \
+            --install-location /Applications --scripts "$work/scripts" \
+            --identifier tech.tanay.free-mind --version "$version" \
+            "$work/free-mind-component.pkg"
+          sed "s/{{VERSION}}/$version/" packaging/macos-pkg/distribution.xml > "$work/distribution.xml"
+          pkg="dist/free-mind_${version}_universal.pkg"
+          productbuild --distribution "$work/distribution.xml" --package-path "$work" "$work/unsigned.pkg"
+
+          if [ -z "$MACOS_INSTALLER_CERT" ]; then
+            mv "$work/unsigned.pkg" "$pkg"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/installer.keychain-db"
+          security create-keychain -p ci "$keychain"
+          security set-keychain-settings "$keychain"
+          security unlock-keychain -p ci "$keychain"
+          echo "$MACOS_INSTALLER_CERT" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+          security import "$RUNNER_TEMP/installer.p12" -k "$keychain" \
+            -P "$MACOS_INSTALLER_CERT_PASSWORD" -T /usr/bin/productsign
+          rm "$RUNNER_TEMP/installer.p12"
+          # Keep the existing keychains in the search list (one word each).
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          productsign --keychain "$keychain" --sign "$MACOS_INSTALLER_IDENTITY" "$work/unsigned.pkg" "$pkg"
+          if [ -n "$APPLE_ID" ]; then
+            xcrun notarytool submit "$pkg" --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple "$pkg"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mind-macos-pkg
+          path: dist/*.pkg
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.pkg --clobber
+
+  # Arch Linux packages (.pkg.tar.zst), repackaged from the Linux .debs.
   arch:
     name: Arch Linux (x64 + ARM64)
     needs: build
@@ -169,17 +342,17 @@ jobs:
           chown -R builder "$work"
           # makepkg lets CARCH and PKGEXT be overridden from the environment.
           for arch in x86_64 aarch64; do
-            sudo -u builder env -C "$work" CARCH="$arch" PKGVER="$version" PKGEXT=.pkg.tar.gz \
+            sudo -u builder env -C "$work" CARCH="$arch" PKGVER="$version" PKGEXT=.pkg.tar.zst \
               makepkg --nodeps --force
           done
           mkdir -p dist
-          cp "$work"/*.pkg.tar.gz dist/
+          cp "$work"/*.pkg.tar.zst dist/
           ls -l dist
 
       # Catches libraries missing from the PKGBUILD's depends.
       - name: Smoke test (x64)
         run: |
-          pacman -U --noconfirm dist/*-x86_64.pkg.tar.gz
+          pacman -U --noconfirm dist/*-x86_64.pkg.tar.zst
           missing=$(ldd /usr/bin/free-mind | grep 'not found' || true)
           if [ -n "$missing" ]; then
             echo "::error::Unresolved libraries:"; echo "$missing"; exit 1
@@ -188,7 +361,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: free-mind-arch
-          path: dist/*.pkg.tar.gz
+          path: dist/*.pkg.tar.zst
           if-no-files-found: error
 
       - name: Attach to release
@@ -196,25 +369,231 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/*.pkg.tar.gz --clobber
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.pkg.tar.zst --clobber
 
-  # Windows MSIX, packed from the exe the Windows build produced. Unsigned:
-  # it needs a code-signing certificate or Microsoft Store submission before
-  # users can install it.
-  msix:
-    name: Windows MSIX (x64)
+  # Classic-confinement snaps, repackaged from the Linux .debs.
+  snap:
+    name: Snap (${{ matrix.arch }})
     needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - arch: ARM64
+            os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: free-mind-${{ matrix.target }}
+          path: artifacts
+
+      - name: Prepare snapcraft project
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          mkdir -p snap-build
+          sed "s/{{VERSION}}/$version/" packaging/snap/snapcraft.yaml > snap-build/snapcraft.yaml
+          find artifacts -name '*.deb' -exec cp {} snap-build/free-mind.deb \;
+
+      - uses: snapcore/action-build@v1
+        id: snapcraft
+        with:
+          path: snap-build
+
+      - name: Smoke test
+        run: |
+          sudo snap install --dangerous --classic "${{ steps.snapcraft.outputs.snap }}"
+          missing=$(ldd /snap/free-mind/current/usr/bin/free-mind | grep 'not found' || true)
+          if [ -n "$missing" ]; then
+            echo "::error::Unresolved libraries:"; echo "$missing"; exit 1
+          fi
+          mkdir -p dist
+          mv "${{ steps.snapcraft.outputs.snap }}" dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mind-snap-${{ matrix.target }}
+          path: dist/*.snap
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.snap --clobber
+
+  # Alpine (musl) packages, built from source in an Alpine container. Docker
+  # rather than `container:` because JavaScript actions can't run in Alpine
+  # containers on ARM runners.
+  alpine:
+    name: Alpine (${{ matrix.arch }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            os: ubuntu-latest
+          - arch: aarch64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build package
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          git archive --prefix="free-mind-$version/" -o "free-mind-$version.tar.gz" HEAD
+          docker run --rm -v "$PWD:/src" -w /src alpine:3.23 sh packaging/alpine/build.sh "$version"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mind-alpine-${{ matrix.arch }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+
+  # Slackware .txz and Void .xbps, repackaged from the Linux .debs.
+  linux-repack:
+    name: Slackware + Void (x64 + ARM64)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: free-mind-*-unknown-linux-gnu
+          path: artifacts
+
+      - name: Build packages
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          for pair in amd64:x86_64 arm64:aarch64; do
+            deb=$(find artifacts -name "*_${pair%%:*}.deb")
+            cp "$deb" "free-mind-${pair#*:}.deb"
+            packaging/slackware/package.sh "$deb" "$version" "${pair#*:}" dist
+          done
+          # xbps-create only runs on Void. It writes metadata only, so both
+          # arches are packaged here; the x64 package is then installed to
+          # check its libraries resolve.
+          docker run --rm -v "$PWD:/src" -w /src ghcr.io/void-linux/void-glibc-full:latest sh -euc "
+            xbps-install -Syu xbps && xbps-install -Syu bsdtar
+            for arch in x86_64 aarch64; do
+              packaging/void/package.sh free-mind-\$arch.deb $version \$arch dist
+            done
+            xbps-rindex -a /src/dist/*.x86_64.xbps
+            xbps-install -y -R /src/dist free-mind
+            if ldd /usr/bin/free-mind | grep 'not found'; then exit 1; fi
+            rm -r /src/dist/*-repodata
+          "
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mind-linux-repack
+          path: |
+            dist/*.txz
+            dist/*.xbps
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.txz dist/*.xbps --clobber
+
+  # FreeBSD package, built from source in a VM. Tauri doesn't officially
+  # support FreeBSD, so a failure here doesn't fail the release.
+  freebsd:
+    name: FreeBSD (x64)
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build package
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y rust node npm pkgconf gtk3 webkit2-gtk_41 \
+              libayatana-appindicator librsvg2-rust polkit xdotool
+          run: |
+            version=$(sed -n 's/^ *"version": *"\(.*\)",$/\1/p' src-tauri/tauri.conf.json | head -1)
+            sh packaging/freebsd/package.sh "$version" dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mind-freebsd
+          path: dist/*.pkg
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.pkg --clobber
+
+  # Checks the Nix flake still builds. Nothing is attached: Nix users build
+  # from the flake.
+  nix:
+    name: Nix flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: cachix/install-nix-action@v31
+
+      # Fails with the expected hash when frontend/package-lock.json changed
+      # and packaging/nix/package.nix's npmDeps hash wasn't updated.
+      - name: Build
+        run: nix build .#free-mind --print-build-logs
+
+      - name: Check flake
+        run: nix flake check
+
+  # Windows MSIX, packed from the exe each Windows build produced. Unsigned
+  # unless WINDOWS_CERTIFICATE is set: it then needs that certificate or a
+  # Microsoft Store submission before users can install it.
+  msix:
+    name: Windows MSIX (${{ matrix.arch }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-pc-windows-msvc
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/download-artifact@v5
         with:
-          name: free-mind-x86_64-pc-windows-msvc
+          name: free-mind-${{ matrix.target }}
           path: artifacts
 
       - name: Pack MSIX
         shell: pwsh
+        env:
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           New-Item -ItemType Directory -Force layout/Assets, dist | Out-Null
@@ -223,19 +602,33 @@ jobs:
           foreach ($icon in 'Square44x44Logo', 'Square150x150Logo', 'StoreLogo') {
             Copy-Item "src-tauri/icons/$icon.png" layout/Assets/
           }
+          # Must match the signing certificate subject or the Partner Center
+          # publisher ID.
+          $publisher = if ($env:MSIX_PUBLISHER) { $env:MSIX_PUBLISHER } else { 'CN=Tanay PrabhuDesai' }
           # MSIX versions have four parts.
           (Get-Content packaging/msix/AppxManifest.xml -Raw) `
             -replace '\{\{VERSION\}\}', "$version.0" `
-            -replace '\{\{PUBLISHER\}\}', 'CN=Tanay PrabhuDesai' |
+            -replace '\{\{ARCH\}\}', '${{ matrix.arch }}' `
+            -replace '\{\{PUBLISHER\}\}', $publisher |
             Set-Content layout/AppxManifest.xml -Encoding utf8
-          $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\10.*\x64\makeappx.exe' |
+          $sdk = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\10.*\x64' |
             Sort-Object FullName | Select-Object -Last 1
-          & $makeappx.FullName pack /d layout /p "dist/Free Mind_${version}_x64.msix" /o
+          $msix = "dist/Free Mind_${version}_${{ matrix.arch }}.msix"
+          & "$($sdk.FullName)\makeappx.exe" pack /d layout /p $msix /o
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          if (-not $env:WINDOWS_CERTIFICATE) { exit 0 }
+          $pfx = Join-Path $env:RUNNER_TEMP cert.pfx
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          & "$($sdk.FullName)\signtool.exe" sign /fd SHA256 /f $pfx /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+            /tr http://timestamp.digicert.com /td SHA256 $msix
+          $code = $LASTEXITCODE
+          Remove-Item $pfx
+          exit $code
 
       - uses: actions/upload-artifact@v4
         with:
-          name: free-mind-msix
+          name: free-mind-msix-${{ matrix.arch }}
           path: dist/*.msix
           if-no-files-found: error
 
@@ -246,3 +639,85 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: gh release upload "$GITHUB_REF_NAME" dist/*.msix --clobber
+
+  # Package-manager recipes (Homebrew, winget, Scoop, Chocolatey, MacPorts,
+  # Solus, AUR, Gentoo) filled in with this release's checksums, attached as
+  # package-manifests.zip for submitting by hand.
+  manifests:
+    name: Package manifests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: free-mind-*
+          path: artifacts
+
+      # The source-built recipes (AUR, Solus) checksum GitHub's archive of
+      # the tag, which only exists for tag builds.
+      - name: Download source archive
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o "$RUNNER_TEMP/source.tar.gz" \
+            "https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz"
+          echo "SOURCE_TARBALL=$RUNNER_TEMP/source.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Generate manifests
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          scripts/generate-manifests.sh "$version" artifacts manifests
+          # The AUR needs a .SRCINFO next to each PKGBUILD. makepkg refuses
+          # to run as root, hence the unprivileged user.
+          chmod -R a+rwX manifests
+          for dir in manifests/aur/*/; do
+            docker run --rm -u nobody -v "$PWD/$dir:/pkg" -w /pkg archlinux:base-devel \
+              makepkg --printsrcinfo > "$dir/.SRCINFO"
+          done
+          mkdir -p dist
+          (cd manifests && zip -r ../dist/package-manifests.zip .)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-manifests
+          path: manifests
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/package-manifests.zip --clobber
+
+  # Chocolatey .nupkg, packed from the filled-in manifest. `choco pack` only
+  # runs on Windows.
+  chocolatey:
+    name: Chocolatey package
+    needs: manifests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: package-manifests
+          path: manifests
+
+      - name: Pack
+        run: choco pack manifests/chocolatey/free-mind.nuspec --outputdirectory dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mind-chocolatey
+          path: dist/*.nupkg
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.nupkg --clobber

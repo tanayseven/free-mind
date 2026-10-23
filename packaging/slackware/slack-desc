@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.
+# Line up the first '|' above the ':' following the base package name, and
+# the '|' on the right side marks the last column you can put a character in.
+# You must make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+         |-----handy-ruler------------------------------------------------------|
+free-mind: free-mind (block distracting websites and stay focused)
+free-mind:
+free-mind: Free Mind blocks distracting websites by editing the system hosts
+free-mind: file through a small privileged helper, installed once with a
+free-mind: single admin prompt. It works offline and collects no data.
+free-mind:
+free-mind: Requires webkit2gtk (4.1), gtk+3, libayatana-appindicator and
+free-mind: polkit, which are available from SlackBuilds.org.
+free-mind:
+free-mind: https://github.com/tanayseven/free-mind
+free-mind:

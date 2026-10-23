@@ -1,0 +1,56 @@
+#!/bin/sh
+# Installs the Free Mind daemon as part of the .pkg, so the app doesn't need
+# its own admin prompt on first launch. The helper is a byte-for-byte copy of
+# the app binary, which is what install::is_current() checks.
+# Keep the plist in sync with run_elevated_install in src-tauri/src/install.rs.
+set -e
+
+LABEL=tech.tanay.free-mind.daemon
+HELPER=/Library/PrivilegedHelperTools/$LABEL
+PLIST=/Library/LaunchDaemons/$LABEL.plist
+# $2 is the install location (/Applications).
+APP_BIN="$2/Free Mind.app/Contents/MacOS/free-mind"
+
+# The daemon's socket belongs to the user at the console. With nobody logged
+# in (e.g. a headless `installer` run), leave it to the app's own install.
+uid=$(stat -f %u /dev/console)
+if [ "$uid" = 0 ]; then
+	exit 0
+fi
+
+launchctl bootout "system/$LABEL" 2>/dev/null || true
+mkdir -p /Library/PrivilegedHelperTools
+cp "$APP_BIN" "$HELPER.new"
+chown root:wheel "$HELPER.new"
+chmod 755 "$HELPER.new"
+mv -f "$HELPER.new" "$HELPER"
+
+cat >"$PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>$LABEL</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$HELPER</string>
+        <string>--daemon</string>
+        <string>--owner-uid</string>
+        <string>$uid</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>StandardErrorPath</key><string>/var/log/free-mind-daemon.log</string>
+</dict>
+</plist>
+PLIST
+chown root:wheel "$PLIST"
+chmod 644 "$PLIST"
+
+# bootstrap can fail briefly while the old job is still being torn down.
+n=0
+until launchctl bootstrap system "$PLIST"; do
+	n=$((n + 1))
+	[ $n -ge 5 ] && exit 1
+	sleep 1
+done

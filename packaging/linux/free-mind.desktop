@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Free Mind
+Comment=Block distracting websites and stay focused
+Exec=free-mind
+Icon=free-mind
+StartupWMClass=free-mind
+Categories=Utility;
+Terminal=false

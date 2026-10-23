@@ -91,6 +91,8 @@ pub fn unblock(path: &Path) -> io::Result<()> {
 
 /// Best-effort DNS cache flush so hosts changes apply immediately.
 pub fn flush_dns() {
+    // FreeBSD doesn't cache DNS by default, so there's nothing to flush there.
+    #[cfg_attr(target_os = "freebsd", allow(unused_imports))]
     use std::process::Command;
 
     #[cfg(target_os = "macos")]
@@ -101,7 +103,7 @@ pub fn flush_dns() {
             .output();
     }
     // Only systemd-resolved caches by default.
-    #[cfg(all(unix, not(target_os = "macos")))]
+    #[cfg(target_os = "linux")]
     let _ = Command::new("resolvectl").arg("flush-caches").output();
     #[cfg(windows)]
     let _ = Command::new("ipconfig").arg("/flushdns").output();

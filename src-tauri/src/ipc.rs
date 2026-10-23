@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, BufReader, Read, Write};
 
 #[cfg(unix)]
-pub const SOCKET_PATH: &str = if cfg!(target_os = "macos") {
-    "/var/run/tech.tanay.free-mind.sock"
-} else {
+pub const SOCKET_PATH: &str = if cfg!(target_os = "linux") {
     "/run/tech.tanay.free-mind.sock"
+} else {
+    // macOS and the BSDs have no /run.
+    "/var/run/tech.tanay.free-mind.sock"
 };
 
 #[cfg(windows)]

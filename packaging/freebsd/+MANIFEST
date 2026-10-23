@@ -1,0 +1,14 @@
+name: free-mind
+version: "{{VERSION}}"
+origin: sysutils/free-mind
+comment: "Block distracting websites and stay focused"
+www: "https://github.com/tanayseven/free-mind"
+maintainer: "tanayseven@users.noreply.github.com"
+prefix: /usr/local
+licenselogic: single
+licenses: [ "UNKNOWN" ]
+desc: <<EOD
+Free Mind blocks distracting websites by editing the system hosts file
+through a small privileged helper, installed once with a single admin
+prompt (via polkit). It works offline and collects no data.
+EOD
