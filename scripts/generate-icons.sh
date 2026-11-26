@@ -22,24 +22,28 @@ viewbox="135.5 32.5 530 530"
 
 # Rewrites the root <svg> size and viewBox to the square crop.
 crop() {
-	sed -E '0,/<svg /s/width="800" height="600" viewBox="0 0 800 600"/width="530" height="530" viewBox="'"$viewbox"'"/' "$1"
+	# The root <svg> is on line 2, after the XML declaration; `1,/re/` (unlike
+	# GNU-only `0,/re/`) works with both GNU and BSD sed.
+	sed -E '1,/<svg /s/width="800" height="600" viewBox="0 0 800 600"/width="530" height="530" viewBox="'"$viewbox"'"/' "$1"
 }
 
 render() { # svg size out
 	rsvg-convert -w "$2" -h "$2" "$1" -o "$3"
 }
 
-# Tray / window status icons: name -> source artwork.
-declare -A status=(
-	[blocked]=frame
-	[unblocking]=broken-chain-1
-	[unblocked]=broken-chain-2
-	[inactive]=frame-grayscale
+# Tray / window status icons: name:source artwork. (A plain list rather than
+# an associative array so it runs on macOS's bash 3.2.)
+status=(
+	blocked:frame
+	unblocking:broken-chain-1
+	unblocked:broken-chain-2
+	inactive:frame-grayscale
 )
 
 mkdir -p "$icons/status"
-for name in "${!status[@]}"; do
-	crop "$static/${status[$name]}.svg" >"$tmp/$name.svg"
+for entry in "${status[@]}"; do
+	name="${entry%%:*}"
+	crop "$static/${entry#*:}.svg" >"$tmp/$name.svg"
 	render "$tmp/$name.svg" 64 "$icons/status/$name.png"
 done
 
